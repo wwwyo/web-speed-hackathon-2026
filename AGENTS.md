@@ -113,6 +113,13 @@ Dockerfile: マルチステージビルド → Fly.io（NRTリージョン、1CP
 - Playwright が Chrome を起動する際にサンドボックスの権限エラーが発生するため、E2E テスト実行時は `dangerouslyDisableSandbox: true` で実行すること
 - **E2Eが失敗した場合は `agent-browser` skill を使ってブラウザで実際の画面を確認しデバッグすること**
 
+## Fly.io のdebug
+> ```bash
+> fly logs --app pr-<PR 番号>-web-speed-hackathon-2026 --access-token <アクセストークン>
+
+Read-only token は [./docs/token.txt](./docs/token.txt) を参照してください
+
+
 ## Ralph Workflow
 
 - Ralph runtime files live under `.agent/ralph/`

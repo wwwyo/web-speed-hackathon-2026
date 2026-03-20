@@ -102,6 +102,11 @@ pnpm ワークスペースによるモノレポ（`application/` 配下）。
 - Connection: close ヘッダー
 - 画像・動画・音声の未最適化
 
+## テストアカウント
+
+- ユーザー名: `o6yq16leo`
+- パスワード: `wsh-2026`
+
 ## デプロイ
 
 Dockerfile: マルチステージビルド → Fly.io（NRTリージョン、1CPU/2GB）

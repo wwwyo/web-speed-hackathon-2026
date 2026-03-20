@@ -305,6 +305,86 @@
       "priority": 17,
       "passes": false,
       "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "SSE crok エンドポイントの意図的遅延削減",
+      "description": "開発者として、crok チャットの SSE レスポンスに含まれる sleep(3000) の TTFT 遅延と sleep(10) の文字間遅延を削減し、操作スコアを改善したい。",
+      "acceptanceCriteria": [
+        "server/src/routes/api/crok.ts の TTFT 遅延（sleep(3000)）が大幅に削減されている（例: 100ms以下）",
+        "server/src/routes/api/crok.ts の文字間遅延（sleep(10)）が削減されている（例: 1-2ms）",
+        "SSE プロトコル自体は変更されていない（レギュレーション遵守）",
+        "crok チャットページで質問を送信するとレスポンスが表示される",
+        "E2Eテスト（cd application/e2e && pnpm test）が通る",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "レギュレーション: GET /api/v1/crok{?prompt} の SSE プロトコルは変更禁止。sleep の値の調整は許可される想定。crok-response.md の内容を SSE 以外で伝達してはならない。"
+    },
+    {
+      "id": "US-019",
+      "title": "bluebird → native Promise 置換",
+      "description": "開発者として、bluebird (~45KB) を native Promise/async-await に置き換え、バンドルサイズを削減したい。",
+      "acceptanceCriteria": [
+        "negaposi_analyzer.ts から bluebird インポートが削除され、native Promise で実装されている",
+        "ChatInput.tsx から bluebird インポートが削除され、native Promise で実装されている",
+        "package.json から bluebird が削除されている",
+        "crok チャットの感情分析が正しく動作する",
+        "検索機能が正しく動作する",
+        "E2Eテスト（cd application/e2e && pnpm test）が通る",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "kuromoji.builder() の promisify 化に bluebird が使われている。new Promise() でラップするだけで置換可能。"
+    },
+    {
+      "id": "US-020",
+      "title": "kuromoji を dynamic import に変更",
+      "description": "開発者として、kuromoji（日本語形態解析）を静的 import から dynamic import に変更し、初期バンドルから分離したい。",
+      "acceptanceCriteria": [
+        "ChatInput.tsx の kuromoji が dynamic import で読み込まれている",
+        "bm25_search.ts の kuromoji が dynamic import で読み込まれている",
+        "negaposi_analyzer.ts の kuromoji が dynamic import で読み込まれている",
+        "検索機能が正しく動作する",
+        "crok チャットが正しく動作する",
+        "E2Eテスト（cd application/e2e && pnpm test）が通る",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "kuromoji は辞書ファイル (public/kuromoji/) も読み込むため、初期バンドルに含めるメリットがない。使用時にオンデマンドで読み込む方が効率的。"
+    },
+    {
+      "id": "US-021",
+      "title": "AspectRatioBox の setTimeout 廃止と CSS 化",
+      "description": "開発者として、AspectRatioBox の setTimeout(500) による遅延計算を CSS aspect-ratio または ResizeObserver に置き換え、レンダリング遅延を排除したい。",
+      "acceptanceCriteria": [
+        "AspectRatioBox.tsx の setTimeout(500) が削除されている",
+        "CSS aspect-ratio プロパティまたは ResizeObserver で代替されている",
+        "画像・動画のアスペクト比が正しく維持されている",
+        "E2Eテスト（cd application/e2e && pnpm test）が通る",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "CSS aspect-ratio は Chrome でサポート済み。JS 計算が不要になればTBT改善にも寄与する。"
+    },
+    {
+      "id": "US-022",
+      "title": "静的アセットの immutable キャッシュ強化",
+      "description": "開発者として、ハッシュ付き静的アセットに Cache-Control: immutable を追加し、304 往復も排除してキャッシュ効率を最大化したい。",
+      "acceptanceCriteria": [
+        "dist/ 配下のハッシュ付きアセット（chunk-[contenthash].js 等）に Cache-Control: public, max-age=31536000, immutable が設定されている",
+        "index.html 等のエントリファイルには短めのキャッシュ（例: no-cache または max-age=0）が設定されている",
+        "サーバーが正常に起動する",
+        "E2Eテスト（cd application/e2e && pnpm test）が通る",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "現在は全静的ファイルに maxAge: 7d が設定されている。ハッシュ付きファイルは immutable で 1年キャッシュにできる。HTML は短いキャッシュにする必要がある。"
     }
   ]
 }

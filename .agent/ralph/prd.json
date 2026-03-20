@@ -111,8 +111,8 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": "pako の gzip は sendJSON で Content-Encoding: gzip を送る仕様のため残す。fetchers.ts を利用する全コンポーネントの動作確認が必要。"
+      "passes": true,
+      "notes": "2026-03-20 完了。jQuery → fetch API 置換完了。pako gzip は sendJSON で維持。ProvidePlugin から $ と window.jQuery 削除。エントリから jquery-binarytransport 削除。"
     },
     {
       "id": "US-007",

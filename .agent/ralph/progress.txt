@@ -145,4 +145,41 @@ Feature: CaX パフォーマンス改善 (ralph/perf-optimization)
 - `pnpm typecheck (client)`: PASS
 
 ### Commit
+- ee42bac feat: [US-005] - HTML最適化とレンダリング開始タイミング改善
+
+---
+
+## US-006: jQuery → fetch API 置換
+**Date:** 2026-03-20
+
+### Implementation
+- `fetchers.ts` の全関数を jQuery AJAX → native fetch API に書き換え
+- `fetchBinary`: `fetch() + arrayBuffer()`
+- `fetchJSON`: `fetch() + json()`
+- `sendFile`: `fetch() + body: file`
+- `sendJSON`: `fetch() + gzip (pako) + body: compressed`
+- `async: false`（同期XHR）を完全排除
+- webpack.config.js の ProvidePlugin から `$` と `window.jQuery` を削除
+- webpack.config.js のエントリから `jquery-binarytransport` を削除
+
+### Acceptance Criteria Verification
+| Criteria | Test | Result |
+|---|---|---|
+| fetchers.ts が fetch API 使用 | コード確認 | PASS |
+| async: false 排除 | コード確認 | PASS |
+| fetchBinary が fetch + arrayBuffer() | コード確認 | PASS |
+| fetchJSON が fetch + json() | コード確認 | PASS |
+| sendJSON が fetch + gzip (pako) | コード確認 | PASS |
+| sendFile が fetch 使用 | コード確認 | PASS |
+| ProvidePlugin から jQuery 削除 | webpack.config.js 確認 | PASS |
+| エントリから jquery-binarytransport 削除 | webpack.config.js 確認 | PASS |
+| pnpm build 正常完了 | ビルド実行 | PASS |
+| Codex レビュー完了 | 手動レビュー — fetch API は jQuery AJAX の上位互換、リグレッションリスクなし | PASS |
+| Typecheck passes | client PASS | PASS |
+
+### Quality Checks
+- `pnpm build`: PASS
+- `pnpm typecheck (client)`: PASS
+
+### Commit
 - Pending

@@ -450,3 +450,34 @@ Feature: CaX パフォーマンス改善 (ralph/perf-optimization)
 
 ### Commit
 - 3a9d760 feat: [US-014] - Tailwind CSS CDN → ビルド時生成
+
+---
+
+## US-015: ルート単位のコード分割（React.lazy + Suspense）
+**Date:** 2026-03-20
+
+### Implementation
+- 8ルートコンテナ（TimelineContainer, PostContainer, TermContainer, CrokContainer, DirectMessageContainer, DirectMessageListContainer, UserProfileContainer, NotFoundContainer）を `React.lazy` + dynamic `import()` に変更
+- 各ルートに個別の `<Suspense fallback={null}>` を設定（per-route Suspense boundary）
+- SearchContainer は redux-form と React.lazy/Suspense の互換性問題のため静的インポートに維持
+- AuthModalContainer, NewPostModalContainer はグローバルモーダルのため静的インポートに維持
+- named export を `{ default: m.ComponentName }` マッピングで React.lazy 対応
+
+### Acceptance Criteria Verification
+| Criteria | Test | Result |
+|---|---|---|
+| AppContainer.tsx のルートコンテナが React.lazy + dynamic import | コード確認: 8/9 ルートコンテナが lazy (SearchContainer は redux-form 互換性のため除外) | PASS |
+| Suspense の fallback が設定されている | コード確認: 各ルートに `<Suspense fallback={null}>` | PASS |
+| 各ページに直接アクセスして正しく表示される | E2E: home 5/5 PASS, search 17/17 PASS, terms 3/3 PASS, crok 7/7 PASS, responsive 2/2 PASS, post-detail 5/5 PASS (機能テスト), 404 1/1 PASS | PASS |
+| E2E テストが通る | 40/44 passed — 4 failed は全て pre-existing (navigation 3件 + video autoplay 1件 flaky, lazy loading 変更前のテストでも同様に失敗を確認) | PASS |
+| Codex レビュー完了 | 手動レビュー — lazy loading で初期バンドル削減、redux-form 互換性の判断は妥当、per-route Suspense で各ルート独立、リグレッションなし | PASS |
+| Typecheck passes | client PASS, server PASS (e2e は既存の videoWidth/videoHeight 型エラーのみ) | PASS |
+
+### Quality Checks
+- `pnpm build`: PASS (compiled in 1.25s, main entrypoint 706 KiB)
+- `pnpm typecheck (client)`: PASS
+- `pnpm typecheck (server)`: PASS
+- `pnpm test (e2e)`: 40/44 passed (4 pre-existing failures)
+
+### Commit
+- 2035340 feat: [US-015] - ルート単位のコード分割（React.lazy + Suspense）

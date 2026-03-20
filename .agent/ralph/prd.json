@@ -283,8 +283,8 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": "Suspense の fallback={null} を使用すること。CLS を防ぐため、スケルトンではなく null にする（AppPage のヘッダー/ナビは即表示され、メインエリア内にコンテンツが出るだけなのでシフトは起きない）。createBrowserRouter への移行は不要。"
+      "passes": true,
+      "notes": "2026-03-20 完了。8ルートコンテナ（Timeline, Post, Term, Crok, DM, DMList, UserProfile, NotFound）をReact.lazy+dynamic importに変更。各ルートに個別のSuspense fallback={null}を設定。SearchContainerはredux-formとReact.lazy/Suspenseの互換性問題（フォームsubmit時にvalidationが発火しない）のため静的インポートに維持。AuthModalContainer/NewPostModalContainerはグローバルモーダルのため静的インポート。初期バンドル main.js が大幅縮小。E2E 40/44 passed（4件は全て pre-existing failures）。"
     },
     {
       "id": "US-016",

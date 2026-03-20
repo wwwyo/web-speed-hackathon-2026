@@ -41,22 +41,26 @@ postRouter.post("/posts", async (req, res) => {
     throw new httpErrors.Unauthorized();
   }
 
+  const { images: imageIds, ...rest } = req.body;
+
   const post = await Post.create(
     {
-      ...req.body,
+      ...rest,
       userId: req.session.userId,
     },
     {
       include: [
-        {
-          association: "images",
-          through: { attributes: [] },
-        },
         { association: "movie" },
         { association: "sound" },
       ],
     },
   );
+
+  // 画像は POST /images で既にDBに保存済みなので、関連付けのみ行う
+  if (Array.isArray(imageIds) && imageIds.length > 0) {
+    const ids = imageIds.map((img: { id: string }) => img.id);
+    await (post as any).setImages(ids);
+  }
 
   return res.status(200).type("application/json").send(post);
 });

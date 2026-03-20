@@ -8,5 +8,6 @@ allowBuilds:
   esbuild: true
   sqlite3: true
   negaposi-analyzer-ja: true
+  sharp: true
 saveExact: true
 shellEmulator: true

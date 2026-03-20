@@ -2,19 +2,48 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { BM25 } from "bayesian-bm25";
 import { Router } from "express";
 import httpErrors from "http-errors";
 
-import { QaSuggestion } from "@web-speed-hackathon-2026/server/src/models";
+import { extractTokens, getTokenizer } from "@web-speed-hackathon-2026/server/src/utils/tokenizer";
+
+import suggestionsData from "@web-speed-hackathon-2026/server/src/data/suggestions.json" with { type: "json" };
 
 export const crokRouter = Router();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const response = fs.readFileSync(path.join(__dirname, "crok-response.md"), "utf-8");
 
-crokRouter.get("/crok/suggestions", async (_req, res) => {
-  const suggestions = await QaSuggestion.findAll({ logging: false });
-  res.json({ suggestions: suggestions.map((s) => s.question) });
+// BM25 インデックスを事前構築
+const bm25 = new BM25({ k1: 1.2, b: 0.75 });
+bm25.index(suggestionsData.map((s) => s.tokens));
+
+crokRouter.get("/crok/suggestions", async (req, res) => {
+  const q = typeof req.query["q"] === "string" ? req.query["q"].trim() : "";
+
+  if (!q) {
+    res.json({ suggestions: suggestionsData.map((s) => s.question), queryTokens: [] });
+    return;
+  }
+
+  const tokenizer = await getTokenizer();
+  const queryTokens = extractTokens(tokenizer.tokenize(q));
+
+  if (queryTokens.length === 0) {
+    res.json({ suggestions: [], queryTokens: [] });
+    return;
+  }
+
+  const scores = bm25.getScores(queryTokens) as number[];
+  const results = suggestionsData
+    .map((s, i) => ({ text: s.question, score: scores[i]! }))
+    .filter((s) => s.score > 0)
+    .sort((a, b) => a.score - b.score)
+    .slice(-10)
+    .map((s) => s.text);
+
+  res.json({ suggestions: results, queryTokens });
 });
 
 crokRouter.get("/crok", async (req, res) => {

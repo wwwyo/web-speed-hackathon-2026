@@ -1,27 +1,10 @@
-import path from "node:path";
-
 import { Router } from "express";
-import kuromoji, { type Tokenizer, type IpadicFeatures } from "kuromoji";
 // @ts-expect-error -- no types
 import analyze from "negaposi-analyzer-ja";
 
+import { getTokenizer } from "@web-speed-hackathon-2026/server/src/utils/tokenizer";
+
 export const sentimentRouter = Router();
-
-let tokenizerPromise: Promise<Tokenizer<IpadicFeatures>> | null = null;
-
-function getTokenizer(): Promise<Tokenizer<IpadicFeatures>> {
-  if (!tokenizerPromise) {
-    tokenizerPromise = new Promise((resolve, reject) => {
-      kuromoji
-        .builder({ dicPath: path.resolve("../public/dicts") })
-        .build((err, tokenizer) => {
-          if (err) reject(err);
-          else resolve(tokenizer);
-        });
-    });
-  }
-  return tokenizerPromise;
-}
 
 sentimentRouter.get("/sentiment", async (req, res) => {
   const raw = typeof req.query["text"] === "string" ? req.query["text"].trim() : "";

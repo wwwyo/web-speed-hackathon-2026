@@ -465,7 +465,8 @@
         "翻訳ボタンを押すと翻訳結果が表示される",
         "dist/scripts/ の最大チャンクサイズが 5MB 未満である",
         "E2Eテスト（cd application/e2e && pnpm test）が通る",
-        "Typecheck passes"
+        "Typecheck passes",
+        "codex skillでreviewが通っている"
       ],
       "priority": 26,
       "passes": true,
@@ -480,7 +481,8 @@
         "サインインモーダル表示時にスタイル未適用の瞬間が発生しない",
         "ページ遷移時にスタイル未適用の瞬間が発生しない",
         "E2Eテスト（cd application/e2e && pnpm test）が通る",
-        "Typecheck passes"
+        "Typecheck passes",
+        "codex skillでreviewが通っている"
       ],
       "priority": 27,
       "passes": false,
@@ -496,7 +498,8 @@
         "プロフィール画像の img タグに width/height が明示されている",
         "Lighthouse の CLS スコアが 0.1 未満である",
         "E2Eテスト（cd application/e2e && pnpm test）が通る",
-        "Typecheck passes"
+        "Typecheck passes",
+        "codex skillでreviewが通っている"
       ],
       "priority": 28,
       "passes": false,
@@ -512,7 +515,8 @@
         "React DevTools Profiler で不要な再レンダリングが確認されない",
         "Lighthouse の TBT が 500ms 未満である",
         "E2Eテスト（cd application/e2e && pnpm test）が通る",
-        "Typecheck passes"
+        "Typecheck passes",
+        "codex skillでreviewが通っている"
       ],
       "priority": 29,
       "passes": false,

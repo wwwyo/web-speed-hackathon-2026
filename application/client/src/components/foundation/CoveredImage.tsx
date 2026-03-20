@@ -23,8 +23,10 @@ export const CoveredImage = ({ src, alt = "" }: Props) => {
       <img
         alt={alt}
         className="h-full w-full object-cover"
+        height={90}
         loading="lazy"
         src={src}
+        width={160}
       />
 
       <button

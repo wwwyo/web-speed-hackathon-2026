@@ -11,8 +11,8 @@ test.describe("投稿詳細", () => {
     await page.goto("/");
     const firstArticle = page.locator("article").first();
     await expect(firstArticle).toBeVisible({ timeout: 30_000 });
-    await firstArticle.click();
-    await page.waitForURL("**/posts/*", { timeout: 30_000 });
+    await firstArticle.click({ position: { x: 10, y: 10 } });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 30_000 });
 
     const article = page.locator("article").first();
     await expect(article).toBeVisible({ timeout: 30_000 });
@@ -28,8 +28,8 @@ test.describe("投稿詳細", () => {
     await page.goto("/");
     const firstArticle = page.locator("article").first();
     await expect(firstArticle).toBeVisible({ timeout: 30_000 });
-    await firstArticle.click();
-    await page.waitForURL("**/posts/*", { timeout: 30_000 });
+    await firstArticle.click({ position: { x: 10, y: 10 } });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 30_000 });
 
     await expect(page).toHaveTitle(/さんのつぶやき - CaX/, { timeout: 30_000 });
   });
@@ -49,7 +49,7 @@ test.describe("投稿詳細 - 動画", () => {
     const movieArticle = page.locator('article:has(button[aria-label="動画プレイヤー"])').first();
     await expect(movieArticle).toBeVisible({ timeout: 30_000 });
     await movieArticle.locator("time").first().click();
-    await page.waitForURL("**/posts/*", { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 30_000 });
 
     const videoPlayer = page.locator('button[aria-label="動画プレイヤー"]').first();
     await expect(videoPlayer).toBeVisible({ timeout: 30_000 });
@@ -78,7 +78,7 @@ test.describe("投稿詳細 - 音声", () => {
     const soundArticle = page.locator('article:has(svg[viewBox="0 0 100 1"])').first();
     await expect(soundArticle).toBeVisible({ timeout: 30_000 });
     await soundArticle.locator("time").first().click();
-    await page.waitForURL("**/posts/*", { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 30_000 });
 
     const waveform = page.locator('svg[viewBox="0 0 100 1"]').first();
     await expect(waveform).toBeVisible({ timeout: 30_000 });
@@ -103,7 +103,7 @@ test.describe("投稿詳細 - 音声", () => {
     const soundArticle = page.locator('article:has(svg[viewBox="0 0 100 1"])').first();
     await expect(soundArticle).toBeVisible({ timeout: 30_000 });
     await soundArticle.locator("time").first().click();
-    await page.waitForURL("**/posts/*", { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 10_000 });
 
     const waveform = page.locator('svg[viewBox="0 0 100 1"]').first();
     await expect(waveform).toBeVisible({ timeout: 30_000 });
@@ -142,7 +142,7 @@ test.describe("投稿詳細 - 写真", () => {
     const imageArticle = page.locator("article:has(.grid img)").first();
     await expect(imageArticle).toBeVisible({ timeout: 30_000 });
     await imageArticle.click();
-    await page.waitForURL("**/posts/*", { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 30_000 });
 
     const coveredImage = page.locator(".grid img").first();
     await expect(coveredImage).toBeVisible({ timeout: 30_000 });
@@ -167,7 +167,7 @@ test.describe("投稿詳細 - 写真", () => {
     const imageArticle = page.locator("article:has(.grid img)").first();
     await expect(imageArticle).toBeVisible({ timeout: 30_000 });
     await imageArticle.click();
-    await page.waitForURL("**/posts/*", { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 10_000 });
 
     const coveredImage = page.locator(".grid img").first();
     await expect(coveredImage).toBeVisible({ timeout: 30_000 });

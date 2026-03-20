@@ -114,7 +114,7 @@ test.describe("DM一覧", () => {
     await usernameInput.blur();
     await submitButton.click();
 
-    await page.waitForURL("**/dm/*", { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/dm\//, { timeout: 30_000 });
 
     await expect(page.getByRole("heading", { name: "滝沢 裕美" })).toBeVisible({
       timeout: 30 * 1000,
@@ -129,7 +129,7 @@ test.describe("DM一覧", () => {
     await page.goto("/dm");
 
     await page.getByRole("link", { name: "p72k8qi1c3" }).click();
-    await page.waitForURL("**/dm/*", { timeout: 30 * 1000 });
+    await expect(page).toHaveURL(/\/dm\//, { timeout: 30_000 });
 
     const messageList = await page.getByTestId("dm-message-list").locator("li time").all();
     const times = await Promise.all(
@@ -150,7 +150,7 @@ test.describe("DM一覧", () => {
     await page.goto("/dm");
 
     await page.getByRole("link", { name: "gg3hlb16" }).click();
-    await page.waitForURL("**/dm/*", { timeout: 30 * 1000 });
+    await expect(page).toHaveURL(/\/dm\//, { timeout: 30_000 });
 
     const messageInput = page.getByRole("textbox", { name: "内容" });
 
@@ -173,14 +173,14 @@ test.describe("DM一覧", () => {
     await page.goto("/dm");
 
     await page.getByRole("link", { name: "g16hmw55" }).click();
-    await page.waitForURL("**/dm/*", { timeout: 30 * 1000 });
+    await expect(page).toHaveURL(/\/dm\//, { timeout: 30_000 });
 
     const peerContext = await browser.newContext();
     const peerPage = await peerContext.newPage();
     await login(peerPage, "g16hmw55");
     await peerPage.goto("/dm");
     await peerPage.getByRole("link", { name: "gg3i6j6" }).click();
-    await peerPage.waitForURL("**/dm/*", { timeout: 30 * 1000 });
+    await expect(peerPage).toHaveURL(/\/dm\//, { timeout: 30_000 });
 
     await expect(page.getByText("入力中…")).not.toBeVisible({ timeout: 30 * 1000 });
 
@@ -196,14 +196,14 @@ test.describe("DM一覧", () => {
     await page.goto("/dm");
 
     await page.getByRole("link", { name: "g16hmw55" }).click();
-    await page.waitForURL("**/dm/*", { timeout: 10 * 1000 });
+    await expect(page).toHaveURL(/\/dm\//, { timeout: 10_000 });
 
     const peerContext = await browser.newContext();
     const peerPage = await peerContext.newPage();
     await login(peerPage, "g16hmw55");
     await peerPage.goto("/dm");
     await peerPage.getByRole("link", { name: "gg3i6j6" }).click();
-    await peerPage.waitForURL("**/dm/*", { timeout: 10 * 1000 });
+    await expect(peerPage).toHaveURL(/\/dm\//, { timeout: 10_000 });
 
     // 相手が入力する
     const messageInput = peerPage.getByRole("textbox", { name: "内容" });
@@ -228,14 +228,14 @@ test.describe("DM一覧", () => {
     await page.goto("/dm");
 
     await page.getByRole("link", { name: "jirgqx22" }).click();
-    await page.waitForURL("**/dm/*", { timeout: 30 * 1000 });
+    await expect(page).toHaveURL(/\/dm\//, { timeout: 30_000 });
 
     const peerContext = await browser.newContext();
     const peerPage = await peerContext.newPage();
     await login(peerPage, "jirgqx22");
     await peerPage.goto("/dm");
     await peerPage.getByRole("link", { name: "gg3i6j6" }).click();
-    await peerPage.waitForURL("**/dm/*", { timeout: 30 * 1000 });
+    await expect(peerPage).toHaveURL(/\/dm\//, { timeout: 30_000 });
 
     const now = `【${new Date().toISOString()}】`;
 
@@ -271,7 +271,7 @@ test.describe("DM詳細 - 追加テスト", () => {
     await login(peerPage, "jirgqx22");
     await peerPage.goto("/dm");
     await peerPage.getByRole("link", { name: "gg3i6j6" }).click();
-    await peerPage.waitForURL("**/dm/*", { timeout: 10 * 1000 });
+    await expect(peerPage).toHaveURL(/\/dm\//, { timeout: 10_000 });
 
     const now = `【DM一覧更新テスト${Date.now()}】`;
     const messageInput = peerPage.getByRole("textbox", { name: "内容" });
@@ -290,7 +290,7 @@ test.describe("DM詳細 - 追加テスト", () => {
     await page.goto("/dm");
 
     await page.getByRole("link", { name: "jirgqx22" }).click();
-    await page.waitForURL("**/dm/*", { timeout: 10 * 1000 });
+    await expect(page).toHaveURL(/\/dm\//, { timeout: 10_000 });
 
     // メッセージリストが表示されるまで待つ
     const messageList = page.getByTestId("dm-message-list");
@@ -314,7 +314,7 @@ test.describe("DM詳細 - 追加テスト", () => {
     await page.goto("/dm");
 
     await page.getByRole("link", { name: "jirgqx22" }).click();
-    await page.waitForURL("**/dm/*", { timeout: 10 * 1000 });
+    await expect(page).toHaveURL(/\/dm\//, { timeout: 10_000 });
 
     // メッセージリストが表示されるまで待つ
     const messageList = page.getByTestId("dm-message-list");
@@ -345,7 +345,7 @@ test.describe("DM詳細 - 追加テスト", () => {
     await login(peerPage, "jirgqx22");
     await peerPage.goto("/dm");
     await peerPage.getByRole("link", { name: "gg3i6j6" }).click();
-    await peerPage.waitForURL("**/dm/*", { timeout: 10 * 1000 });
+    await expect(peerPage).toHaveURL(/\/dm\//, { timeout: 10_000 });
 
     const now = `【未読テスト${Date.now()}】`;
     const messageInput = peerPage.getByRole("textbox", { name: "内容" });
@@ -361,7 +361,7 @@ test.describe("DM詳細 - 追加テスト", () => {
     await login(page, "gg3i6j6");
     await page.goto("/dm");
     await page.getByRole("link", { name: "jirgqx22" }).click();
-    await page.waitForURL("**/dm/*", { timeout: 10 * 1000 });
+    await expect(page).toHaveURL(/\/dm\//, { timeout: 10_000 });
 
     // メッセージリストが表示されるまで待つ
     await expect(page.getByTestId("dm-message-list")).toBeVisible({ timeout: 10 * 1000 });
@@ -380,14 +380,14 @@ test.describe("DM詳細 - 追加テスト", () => {
     await page.goto("/dm");
 
     await page.getByRole("link", { name: "jirgqx22" }).click();
-    await page.waitForURL("**/dm/*", { timeout: 10 * 1000 });
+    await expect(page).toHaveURL(/\/dm\//, { timeout: 10_000 });
 
     const peerContext = await browser.newContext();
     const peerPage = await peerContext.newPage();
     await login(peerPage, "jirgqx22");
     await peerPage.goto("/dm");
     await peerPage.getByRole("link", { name: "gg3i6j6" }).click();
-    await peerPage.waitForURL("**/dm/*", { timeout: 10 * 1000 });
+    await expect(peerPage).toHaveURL(/\/dm\//, { timeout: 10_000 });
 
     const now = `【既読リアルタイムテスト${Date.now()}】`;
 
@@ -414,7 +414,7 @@ test.describe("DM詳細 - 追加テスト", () => {
     await page.goto("/dm");
 
     await page.getByRole("link", { name: "jirgqx22" }).click();
-    await page.waitForURL("**/dm/*", { timeout: 10 * 1000 });
+    await expect(page).toHaveURL(/\/dm\//, { timeout: 10_000 });
 
     // メッセージリストが表示されるまで待つ
     await expect(page.getByTestId("dm-message-list")).toBeVisible({ timeout: 10 * 1000 });
@@ -424,7 +424,7 @@ test.describe("DM詳細 - 追加テスト", () => {
     await login(peerPage, "jirgqx22");
     await peerPage.goto("/dm");
     await peerPage.getByRole("link", { name: "gg3i6j6" }).click();
-    await peerPage.waitForURL("**/dm/*", { timeout: 10 * 1000 });
+    await expect(peerPage).toHaveURL(/\/dm\//, { timeout: 10_000 });
 
     const now = `【スクロールテスト${Date.now()}】`;
 
@@ -470,7 +470,7 @@ test.describe("DM - 未読バッジ", () => {
     await login(peerPage, "jirgqx22");
     await peerPage.goto("/dm");
     await peerPage.getByRole("link", { name: "gg3i6j6" }).click();
-    await peerPage.waitForURL("**/dm/*", { timeout: 10 * 1000 });
+    await expect(peerPage).toHaveURL(/\/dm\//, { timeout: 10_000 });
 
     const now = `【バッジテスト${Date.now()}】`;
     const messageInput = peerPage.getByRole("textbox", { name: "内容" });

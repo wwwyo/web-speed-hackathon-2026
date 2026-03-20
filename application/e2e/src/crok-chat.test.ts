@@ -23,7 +23,7 @@ test.describe("Crok AIチャット", () => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await login(page);
     await page.getByRole("link", { name: "Crok" }).click();
-    await page.waitForURL("**/crok", { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/crok/, { timeout: 30_000 });
   });
 
   test("初回表示時にウェルカム画面「AIアシスタントに質問してみましょう」が表示される", async ({ page }) => {

@@ -30,7 +30,7 @@ test.describe("投稿機能", () => {
     await page.locator("dialog").getByRole("button", { name: "投稿する" }).click();
 
     // 投稿詳細に遷移する
-    await page.waitForURL("**/posts/*", { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 30_000 });
     await expect(page.locator("article").first()).toBeVisible({ timeout: 30_000 });
 
     // 投稿内容が表示されていることを確認
@@ -58,7 +58,7 @@ test.describe("投稿機能", () => {
     await page.locator("dialog").getByRole("button", { name: "投稿する" }).click();
 
     // 投稿詳細に遷移する
-    await page.waitForURL("**/posts/*", { timeout: 60_000 });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 60_000 });
 
     const article = page.locator("article").first();
     await expect(article).toBeVisible({ timeout: 30_000 });
@@ -93,7 +93,7 @@ test.describe("投稿機能 - TIFF画像", () => {
     await page.locator("dialog").getByRole("button", { name: "投稿する" }).click();
 
     // 投稿詳細に遷移する
-    await page.waitForURL("**/posts/*", { timeout: 120_000 });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 120_000 });
 
     const article = page.locator("article").first();
     await expect(article).toBeVisible({ timeout: 10_000 });
@@ -121,7 +121,7 @@ test.describe("投稿機能 - TIFF画像", () => {
     await page.locator("dialog").getByRole("button", { name: "投稿する" }).click();
 
     // 投稿詳細に遷移する
-    await page.waitForURL("**/posts/*", { timeout: 120_000 });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 120_000 });
 
     const article = page.locator("article").first();
     await expect(article).toBeVisible({ timeout: 10_000 });
@@ -170,7 +170,7 @@ test.describe("投稿機能 - WAV音声", () => {
     await page.locator("dialog").getByRole("button", { name: "投稿する" }).click();
 
     // 投稿詳細に遷移する
-    await page.waitForURL("**/posts/*", { timeout: 120_000 });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 120_000 });
 
     const article = page.locator("article").first();
     await expect(article).toBeVisible({ timeout: 10_000 });
@@ -231,7 +231,7 @@ test.describe("投稿機能 - MKV動画", () => {
     await page.locator("dialog").getByRole("button", { name: "投稿する" }).click();
 
     // 投稿詳細に遷移する
-    await page.waitForURL("**/posts/*", { timeout: 120_000 });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 120_000 });
 
     const article = page.locator("article").first();
     await expect(article).toBeVisible({ timeout: 10_000 });
@@ -294,7 +294,7 @@ test.describe("投稿機能 - MKV動画", () => {
     await page.locator("dialog").getByRole("button", { name: "投稿する" }).click();
 
     // 投稿詳細に遷移する
-    await page.waitForURL("**/posts/*", { timeout: 120_000 });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 120_000 });
 
     const article = page.locator("article").first();
     await expect(article).toBeVisible({ timeout: 10_000 });

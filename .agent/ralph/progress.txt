@@ -283,3 +283,42 @@ Quality Checks:
 
 Commit:
 - Message: `feat: [US-006] - FastAverageColor のメインスレッドブロック修正`
+
+---
+
+## 2026-03-21 - US-007 ChatMessage Markdown の key={content} リマウント修正
+
+Implementation:
+- `application/client/src/components/crok/ChatMessage.tsx` の `Markdown` から `key={content}` を削除し、SSE で `content` が伸びても Markdown コンポーネント全体が再マウントされないよう修正
+
+Acceptance Criteria Verification:
+- AC: ChatMessage.tsx の Markdown コンポーネントから key={content} が削除されている
+  Test case: `application/client/src/components/crok/ChatMessage.tsx` の実装確認
+  Result: `AssistantMessage` 内の `Markdown` に `components` / `rehypePlugins` / `remarkPlugins` は残しつつ、`key={content}` のみ削除されていることを確認
+- AC: Crok チャットでストリーミングレスポンスが正しく表示される
+  Test case: `mise exec -- pnpm build`; `mise exec -- env PORT=3011 pnpm start`; `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/crok-chat.test.ts`
+  Result: 8 tests passed。`質問を送信するとAIの応答が表示される` と `レスポンスが返却されている間は送信ボタンが無効化される` を含め、build 済みサーバー上で Crok のストリーミング表示が正常に完了することを確認
+- AC: 数式（KaTeX）やコードブロック（syntax highlighting）が正しくレンダリングされる
+  Test case: `agent-browser open http://127.0.0.1:3011/not-found && agent-browser wait --load networkidle`; `agent-browser click @e3`; `agent-browser fill @e6 "o6yq16leo" && agent-browser fill @e7 "wsh-2026" && agent-browser click @e8`; `agent-browser click @e6`; `agent-browser fill @e9 "走れメロスについて教えて" && agent-browser click @e10 && agent-browser wait 3000 && agent-browser get text body`; `agent-browser snapshot -s '.katex >> nth=0'`; `agent-browser snapshot -s 'main pre >> nth=0'`; `agent-browser screenshot /tmp/us007-crok-chat.png`
+  Result: 固定レスポンス全文がブラウザで表示され、`.katex >> nth=0` で `math: 正義 ≥ 恐怖`、`main pre >> nth=0` で JSON コードブロックが取得できた。スクリーンショットでも Crok 画面のレンダリングを確認
+- AC: 該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）
+  Test case: `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/crok-chat.test.ts`
+  Result: passed (8 tests)
+- AC: codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う
+  Test case: 別 Codex エージェント `Locke` に `application/client/src/components/crok/ChatMessage.tsx` の working tree diff レビューを移譲
+  Result: `Approve`。`key={content}` 削除は妥当で、`TypingIndicator` から `Markdown` への切り替えも維持されており追加の懸念なしとのレビュー結果を確認
+- AC: Typecheck passes
+  Test case: `mise exec -- pnpm typecheck`
+  Result: passed
+
+Quality Checks:
+- `mise trust` -> passed (`No untrusted config files found.`)
+- `mise install` -> passed (`mise all tools are installed`)
+- `mise exec -- pnpm typecheck` -> passed
+- `mise exec -- pnpm build` -> passed (Rspack size warning only)
+- `mise exec -- npx -y react-doctor@latest . --verbose --diff` -> passed with warning (`src/components/timeline/TimelineItem.tsx:59` の既存 keyboard accessibility warning のみ, score 99/100)
+- `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/crok-chat.test.ts` -> passed (8 tests)
+- `agent-browser open http://127.0.0.1:3011/not-found && agent-browser wait --load networkidle && agent-browser click @e3 && agent-browser fill @e6 "o6yq16leo" && agent-browser fill @e7 "wsh-2026" && agent-browser click @e8 && agent-browser click @e6 && agent-browser fill @e9 "走れメロスについて教えて" && agent-browser click @e10 && agent-browser wait 3000 && agent-browser snapshot -s '.katex >> nth=0' && agent-browser snapshot -s 'main pre >> nth=0' && agent-browser screenshot /tmp/us007-crok-chat.png` -> passed (Crok 応答完了後の KaTeX とコードブロックをブラウザで確認)
+
+Commit:
+- Message: `feat: [US-007] - ChatMessage Markdown の key={content} リマウント修正`

@@ -121,7 +121,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "client/src/components/crok/ChatMessage.tsx:37 で key={content} が設定されているため、SSE でテキストが1文字増えるたびに Markdown コンポーネント全体がアンマウント→再マウントされる。"
     },
     {

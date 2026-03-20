@@ -40,8 +40,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "2026-03-20 完了。core-js/regenerator-runtime 削除でバンドルサイズ約2MB削減。modules: false で webpack tree-shaking が有効に。"
     },
     {
       "id": "US-003",

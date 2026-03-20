@@ -163,34 +163,24 @@ test.describe("投稿詳細 - 写真", () => {
     });
   });
 
-  // TODO: 画像バイナリ取得+EXIFパースが重く30秒超。セレクタ修正・dialogフォールバック済み
-  // test("「ALTを表示する」ボタンを押すと画像のALTが表示される", async ({ page }) => {
-  //   await page.goto("/");
-  //   const imageArticle = page.locator("article:has(.grid img)").first();
-  //   await expect(imageArticle).toBeVisible({ timeout: 30_000 });
-  //   await imageArticle.click();
-  //   await page.waitForURL("**/posts/*", { timeout: 10_000 });
-  //   const coveredImage = page.locator(".grid img").first();
-  //   await expect(coveredImage).toBeVisible({ timeout: 30_000 });
-  //   await waitForVisibleMedia(page);
-  //   const altButton = page.locator("button:has-text('ALT を表示する')").first();
-  //   await expect(altButton).toBeVisible({ timeout: 30_000 });
-  //   await altButton.click();
-  //   const dialogVisible = await page.locator("dialog[open]").isVisible().catch(() => false);
-  //   if (!dialogVisible) {
-  //     await page.evaluate(() => {
-  //       const btn = document.querySelector("button[command='show-modal']") as HTMLButtonElement;
-  //       const dialogId = btn?.getAttribute("commandfor");
-  //       if (dialogId) {
-  //         const dialog = document.getElementById(dialogId) as HTMLDialogElement;
-  //         dialog?.showModal();
-  //       }
-  //     });
-  //   }
-  //   await expect(page.locator("dialog h1:has-text('画像の説明')")).toBeVisible({ timeout: 10_000 });
-  //   const altDescription = page.locator("dialog p.text-sm");
-  //   await expect(altDescription).toBeVisible({ timeout: 10_000 });
-  //   const altText = await altDescription.innerText();
-  //   expect(altText.length).toBeGreaterThan(0);
-  // });
+  test("「ALTを表示する」ボタンを押すと画像のALTが表示される", async ({ page }) => {
+    await page.goto("/");
+    const imageArticle = page.locator("article:has(.grid img)").first();
+    await expect(imageArticle).toBeVisible({ timeout: 30_000 });
+    await imageArticle.click();
+    await page.waitForURL("**/posts/*", { timeout: 10_000 });
+
+    const coveredImage = page.locator(".grid img").first();
+    await expect(coveredImage).toBeVisible({ timeout: 30_000 });
+
+    const altButton = page.locator("button:has-text('ALT を表示する')").first();
+    await expect(altButton).toBeVisible({ timeout: 30_000 });
+    await altButton.click();
+
+    await expect(page.getByRole("heading", { name: "画像の説明" })).toBeVisible({ timeout: 10_000 });
+    const altDescription = page.locator("dialog p.text-sm").first();
+    await expect(altDescription).toBeVisible({ timeout: 10_000 });
+    const altText = await altDescription.innerText();
+    expect(altText.length).toBeGreaterThan(0);
+  });
 });

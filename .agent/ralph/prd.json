@@ -88,8 +88,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "2026-03-20 完了。defer属性追加、load イベント待ち削除で即座レンダリング。"
     },
     {
       "id": "US-006",

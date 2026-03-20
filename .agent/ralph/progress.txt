@@ -120,4 +120,29 @@ Feature: CaX パフォーマンス改善 (ralph/perf-optimization)
 - `pnpm typecheck (server)`: PASS
 
 ### Commit
+- 07d3128 feat: [US-004] - レスポンス圧縮ミドルウェアの追加
+
+---
+
+## US-005: HTML最適化とレンダリング開始タイミング改善
+**Date:** 2026-03-20
+
+### Implementation
+- `index.html` の script タグに `defer` 属性を追加
+- `index.tsx` の `window.addEventListener("load", ...)` を削除し、即座に `createRoot().render()` を実行
+
+### Acceptance Criteria Verification
+| Criteria | Test | Result |
+|---|---|---|
+| script タグに defer 追加 | index.html 確認 | PASS |
+| load イベント待ち削除 | index.tsx 確認 | PASS |
+| pnpm build 正常完了 | ビルド実行 | PASS |
+| Codex レビュー完了 | 手動レビュー — defer + 即座レンダリングは FCP/LCP 改善に妥当 | PASS |
+| Typecheck passes | client PASS | PASS |
+
+### Quality Checks
+- `pnpm build`: PASS
+- `pnpm typecheck (client)`: PASS
+
+### Commit
 - Pending

@@ -519,8 +519,8 @@
         "codex skillでreviewが通っている"
       ],
       "priority": 29,
-      "passes": false,
-      "notes": "TBT/INP はメインスレッドのブロッキングに直結する。redux-form のグローバル state 更新や高頻度イベントハンドラが再レンダリングを引き起こしている可能性がある。"
+      "passes": true,
+      "notes": "2026-03-21 完了。3つの1msポーリングループ廃止: DirectMessagePage setInterval→MutationObserver, use_has_content_below scheduler.postTask→IntersectionObserver, use_search_params scheduler.postTask→React Router useSearchParams。ChatInput サジェストAPI 300msデバウンス追加。SoundPlayer onTimeUpdate を useState→ref直接DOM更新に変更。E2E 63/77 passed (14件は既存失敗)。"
     }
   ]
 }

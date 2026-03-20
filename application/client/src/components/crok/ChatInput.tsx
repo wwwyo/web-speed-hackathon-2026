@@ -88,30 +88,27 @@ export const ChatInput = ({ isStreaming, onSendMessage }: Props) => {
   useEffect(() => {
     let cancelled = false;
 
-    const updateSuggestions = async () => {
-      if (!inputValue.trim()) {
-        setSuggestions([]);
-        setQueryTokens([]);
-        setShowSuggestions(false);
-        return;
-      }
+    if (!inputValue.trim()) {
+      setSuggestions([]);
+      setQueryTokens([]);
+      setShowSuggestions(false);
+      return;
+    }
 
+    const timerId = setTimeout(async () => {
       const result = await fetchJSON<{ suggestions: string[]; queryTokens: string[] }>(
         `/api/v1/crok/suggestions?q=${encodeURIComponent(inputValue)}`,
       );
-      if (cancelled) {
-        return;
-      }
+      if (cancelled) return;
 
       setQueryTokens(result.queryTokens);
       setSuggestions(result.suggestions);
       setShowSuggestions(result.suggestions.length > 0);
-    };
-
-    void updateSuggestions();
+    }, 300);
 
     return () => {
       cancelled = true;
+      clearTimeout(timerId);
     };
   }, [inputValue]);
 

@@ -114,10 +114,18 @@ Dockerfile: マルチステージビルド → Fly.io（NRTリージョン、1CP
 - **E2Eが失敗した場合は `agent-browser` skill を使ってブラウザで実際の画面を確認しデバッグすること**
 
 ## Fly.io のdebug
-> ```bash
-> fly logs --app pr-<PR 番号>-web-speed-hackathon-2026 --access-token <アクセストークン>
 
-Read-only token は [./docs/token.txt](./docs/token.txt) を参照してください
+```bash
+# ログ確認（環境変数でトークンを渡す）
+FLY_API_TOKEN='<アクセストークン>' flyctl logs --app pr-54-web-speed-hackathon-2026 --no-tail
+
+# 直近のログのみ表示
+FLY_API_TOKEN='<アクセストークン>' flyctl logs --app pr-54-web-speed-hackathon-2026 --no-tail | tail -80
+```
+
+- Read-only token は [./docs/token.txt](./docs/token.txt) を参照
+- `--access-token` フラグは flyctl で無視されるため、`FLY_API_TOKEN` 環境変数で渡すこと
+- アプリ名は `pr-54-web-speed-hackathon-2026` 固定
 
 
 ## Ralph Workflow

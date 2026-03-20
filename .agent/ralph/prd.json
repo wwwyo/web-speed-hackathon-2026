@@ -105,7 +105,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "client/src/components/user_profile/UserProfileHeader.tsx:17-22 で FastAverageColor({ mode: 'precision' }) を実行。画像ピクセル全走査でメインスレッドを数十ms ブロック。"
     },
     {

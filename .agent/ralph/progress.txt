@@ -242,3 +242,44 @@ Quality Checks:
 
 Commit:
 - Message: `feat: [US-005] - React.memo によるリスト再レンダリング抑制`
+
+---
+
+## 2026-03-21 - US-006 FastAverageColor のメインスレッドブロック修正
+
+Implementation:
+- `application/client/src/components/user_profile/UserProfileHeader.tsx` の `FastAverageColor#getColor()` を `mode: "precision"` から `mode: "speed"` に変更し、プロフィール画像ロード時の全ピクセル走査を避けるよう修正
+- `application/client/src/components/user_profile/UserProfileHeader.tsx` に、軽量サンプリングへ切り替えた意図を示すコメントを追加
+
+Acceptance Criteria Verification:
+- AC: FastAverageColor の mode が 'speed' に変更されている、または Web Worker で実行されている、または CSS のデフォルト色で代替されている
+  Test case: `application/client/src/components/user_profile/UserProfileHeader.tsx` の実装確認
+  Result: `handleLoadImage` 内の `fac.getColor(ev.currentTarget, { mode: "speed" })` を確認し、`precision` モードを使わない実装へ変更したことを確認
+- AC: ユーザープロフィールページのヘッダー背景色が正しく表示される
+  Test case: `mise exec -- env PORT=3011 pnpm start` で build 済みサーバーを起動し、`agent-browser open http://127.0.0.1:3011/users/o6yq16leo && agent-browser wait --load networkidle && agent-browser get styles 'header > div' && agent-browser screenshot /tmp/us006-user-profile.png`
+  Result: `header > div` の computed `background: rgb(5, 72, 145)` を確認し、スクリーンショットでもプロフィール画像に追従した青系ヘッダーが表示されることを確認
+- AC: プロフィールページ表示時にメインスレッドが長時間ブロックされない
+  Test case: `application/client/src/components/user_profile/UserProfileHeader.tsx` の実装確認; `agent-browser open http://127.0.0.1:3011/users/o6yq16leo && agent-browser wait --load networkidle && agent-browser snapshot -i`
+  Result: 高コストな `precision` 走査を廃止して `speed` サンプリングへ変更したことを確認し、ブラウザでもプロフィール画面が即座に操作可能な状態でスナップショット取得できることを確認
+- AC: 該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）
+  Test case: `mise exec -- pnpm build`; `mise exec -- env PORT=3011 pnpm start`; `curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:3011/api/v1/initialize`; `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/user-profile.test.ts`
+  Result: 3 tests passed
+- AC: codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う
+  Test case: 別 Codex エージェント `Raman` に `application/client/src/components/user_profile/UserProfileHeader.tsx` の working tree diff レビューを移譲
+  Result: findings なし。`mode: "precision"` から `mode: "speed"` への変更は correctness / performance / regression の観点で妥当とのレビュー結果を確認
+- AC: Typecheck passes
+  Test case: `mise exec -- pnpm typecheck`
+  Result: passed
+
+Quality Checks:
+- `mise trust` -> passed (`No untrusted config files found.`)
+- `mise install` -> passed (`mise all tools are installed`)
+- `mise exec -- pnpm typecheck` -> passed
+- `mise exec -- pnpm build` -> passed (Rspack size warning only)
+- `mise exec -- npx -y react-doctor@latest . --verbose --diff` -> passed with warning (`TimelineItem.tsx` の既存 keyboard accessibility warning のみ, score 99/100)
+- `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/user-profile.test.ts` -> passed (3 tests)
+- `agent-browser open http://127.0.0.1:3011/users/o6yq16leo && agent-browser wait --load networkidle && agent-browser snapshot -i && agent-browser screenshot /tmp/us006-user-profile.png` -> passed (プロフィール画面が表示され、ヘッダー配色を含む見た目をブラウザで確認)
+- `agent-browser get styles 'header > div'` -> passed (`background: rgb(5, 72, 145)` を確認)
+
+Commit:
+- Message: `feat: [US-006] - FastAverageColor のメインスレッドブロック修正`

@@ -16,7 +16,8 @@ export const UserProfileHeader = ({ user }: Props) => {
   /** @type {React.ReactEventHandler<HTMLImageElement>} */
   const handleLoadImage = useCallback<ReactEventHandler<HTMLImageElement>>((ev) => {
     const fac = new FastAverageColor();
-    const { rgb } = fac.getColor(ev.currentTarget, { mode: "precision" });
+    // Use the fast sampling mode to avoid blocking the main thread on large images.
+    const { rgb } = fac.getColor(ev.currentTarget, { mode: "speed" });
     setAverageColor(rgb);
     fac.destroy();
   }, []);

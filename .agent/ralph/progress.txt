@@ -101,3 +101,47 @@ Quality Checks:
 
 Commit:
 - Message: `feat: [US-002] - DirectMessageConversation の全メッセージ eager load 廃止`
+
+---
+
+## 2026-03-21 - US-003 DirectMessage afterSave フック N+1 修正
+
+Implementation:
+- `application/server/src/models/DirectMessage.ts` に `countUnreadDirectMessagesForUser()` を追加し、未読件数計算を `COUNT(*) + conversationId subquery` の 1 クエリへ集約
+- `application/server/src/models/DirectMessage.ts` の `afterSave` を変更し、保存直後の `DirectMessage.findByPk()` をやめて、保存済みインスタンスと最小属性の `DirectMessageConversation.findByPk()` だけで通知先ユーザーを解決するよう変更
+- `application/server/src/routes/api/direct_message.ts` の `/dm/unread` 初期配信で上記 helper を使うよう変更
+- `application/server/src/routes/api/direct_message.ts` の `/dm/:conversationId/read` で `individualHooks: true` を外し、bulk update 後に未読件数を 1 回だけ再計算し、最新メッセージ 1 件を使って会話更新イベントを 1 回だけ送るよう変更
+- `application/client/src/containers/DirectMessageContainer.tsx` を `senderId` ベースの WebSocket 判定に変更し、通知 payload に eager loaded `sender` がなくてもタイピングインジケータを正しく扱えるよう変更
+
+Acceptance Criteria Verification:
+- AC: DirectMessage.ts の afterSave フックで保存直後の findByPk が削除または最適化されている
+  Test case: `application/server/src/models/DirectMessage.ts` の実装確認
+  Result: `afterSave` は保存済み `message` をそのまま使い、`DirectMessage.findByPk(message.id)` を削除。必要な会話情報だけを `attributes: ["id", "initiatorId", "memberId"]` で取得する実装へ変更したことを確認
+- AC: 未読メッセージカウントのクエリが効率化されている
+  Test case: `application/server/src/models/DirectMessage.ts` と `application/server/src/routes/api/direct_message.ts` の実装確認
+  Result: `countUnreadDirectMessagesForUser()` が `DirectMessages` に対する `COUNT(*)` と `DirectMessageConversations` の subquery だけで未読件数を返し、`/dm/unread` と `afterSave` の双方で join 付き `count + include` を使わなくなったことを確認。`/dm/:conversationId/read` も `individualHooks` をやめて 1 回の bulk update と 1 回の通知に集約
+- AC: DM でメッセージ送受信が正常に動作する
+  Test case: `CI=1 E2E_BASE_URL=http://localhost:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/dm.test.ts`
+  Result: メッセージ送信、一覧反映、詳細反映、入力中インジケータを含む DM シナリオが通過
+- AC: WebSocket 経由の未読通知が正しく動作する
+  Test case: `CI=1 E2E_BASE_URL=http://localhost:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/dm.test.ts`
+  Result: `メッセージ・既読がリアルタイムで更新されること`、`未読のメッセージがある状態でDM詳細画面を開いた場合、未読のメッセージが既読になる`、`新規メッセージを受信した場合、リアルタイムで相手のメッセージ履歴が既読になる`、`未読のメッセージがある場合はメニューに未読数のバッジが表示される` を含む 17 テストが通過
+- AC: 該当箇所のE2Eテストが通っていること
+  Test case: `CI=1 E2E_BASE_URL=http://localhost:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/dm.test.ts`
+  Result: 17 tests passed
+- AC: codex skill で review を受けること
+  Test case: 別 Codex エージェント `Fermat` にローカル変更のレビューを移譲
+  Result: `dm:conversation:message` の payload 契約を `{ senderId }` に狭めていた互換性リスクを指摘されたため、payload は `DirectMessage` 形状を維持するよう修正。修正後は追加の重大 finding なしとして扱える状態まで反映
+- AC: Typecheck passes
+  Test case: `mise exec -- pnpm typecheck`
+  Result: passed
+
+Quality Checks:
+- `mise trust` -> passed (`No untrusted config files found.`)
+- `mise install` -> passed (`mise all tools are installed`)
+- `mise exec -- pnpm typecheck` -> passed
+- `mise exec -- pnpm build` -> passed (Rspack size warning only)
+- `CI=1 E2E_BASE_URL=http://localhost:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/dm.test.ts` -> passed (17 tests)
+
+Commit:
+- Message: `feat: [US-003] - DirectMessage afterSave フック N+1 修正`

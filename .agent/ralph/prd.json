@@ -54,7 +54,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "server/src/models/DirectMessage.ts:75-107 の afterSave で findByPk + 複雑な include 付き count を実行。メッセージ送信ごとに最低2回の追加クエリ。"
     },
     {

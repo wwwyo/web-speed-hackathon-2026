@@ -4,6 +4,7 @@ import { QueryTypes, Op } from "sequelize";
 
 import { eventhub } from "@web-speed-hackathon-2026/server/src/eventhub";
 import {
+  countUnreadDirectMessagesForUser,
   DirectMessage,
   DirectMessageConversation,
   User,
@@ -152,22 +153,7 @@ directMessageRouter.ws("/dm/unread", async (req, _res) => {
     eventhub.off(`dm:unread/${req.session.userId}`, handler);
   });
 
-  const unreadCount = await DirectMessage.count({
-    distinct: true,
-    where: {
-      senderId: { [Op.ne]: req.session.userId },
-      isRead: false,
-    },
-    include: [
-      {
-        association: "conversation",
-        where: {
-          [Op.or]: [{ initiatorId: req.session.userId }, { memberId: req.session.userId }],
-        },
-        required: true,
-      },
-    ],
-  });
+  const unreadCount = await countUnreadDirectMessagesForUser(req.session.userId);
 
   eventhub.emit(`dm:unread/${req.session.userId}`, { unreadCount });
 });
@@ -286,13 +272,32 @@ directMessageRouter.post("/dm/:conversationId/read", async (req, res) => {
       ? conversation.initiatorId
       : conversation.memberId;
 
-  await DirectMessage.update(
+  const [updatedCount] = await DirectMessage.update(
     { isRead: true },
     {
       where: { conversationId: conversation.id, senderId: peerId, isRead: false },
-      individualHooks: true,
     },
   );
+
+  if (updatedCount > 0) {
+    const unreadCount = await countUnreadDirectMessagesForUser(req.session.userId);
+    const latestPeerMessage = await DirectMessage.unscoped().findOne({
+      attributes: ["id", "body", "senderId", "conversationId", "isRead", "createdAt", "updatedAt"],
+      order: [
+        ["createdAt", "DESC"],
+        ["id", "DESC"],
+      ],
+      where: {
+        conversationId: conversation.id,
+        senderId: peerId,
+      },
+    });
+
+    if (latestPeerMessage != null) {
+      eventhub.emit(`dm:conversation/${conversation.id}:message`, latestPeerMessage.toJSON());
+    }
+    eventhub.emit(`dm:unread/${req.session.userId}`, { unreadCount });
+  }
 
   return res.status(200).type("application/json").send({});
 });

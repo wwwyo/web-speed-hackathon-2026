@@ -1,7 +1,7 @@
 {
   "project": "CaX パフォーマンス改善",
   "branchName": "ralph/perf-optimization",
-  "description": "架空SNS「CaX」のLighthouse計測スコアを最大化するパフォーマンス改善。表示900点+操作250点の合計1150点中、まず表示300点超えを目指し段階的に改善する。",
+  "description": "架空SNS「CaX」のLighthouse計測スコアを最大化するパフォーマンス改善。表示900点+操作250点の合計1150点中、まず表示300点超えを目指し段階的に改善する。E2Eテストは全件実行ではなく、変更に関連するテストファイルのみ実行すればよい（例: pnpm test src/search.test.ts）。",
   "userStories": [
     {
       "id": "US-001",
@@ -233,8 +233,8 @@
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": "ImageArea.tsx から CoveredImage へ渡す props の変更が必要な場合がある。Post モデルの images に alt 情報が含まれているか要確認。"
+      "passes": true,
+      "notes": "2026-03-20 完了。fetchBinary+image-size+BlobURL+手動cover計算を、直接<img src>+object-fit:coverに置換。database.sqliteのalt未反映バグも修正。E2Eテスト position:absolute→object-fit:cover チェックに更新。"
     },
     {
       "id": "US-013",
@@ -300,8 +300,8 @@
         "Typecheck passes"
       ],
       "priority": 16,
-      "passes": false,
-      "notes": "サーバー側 GET /api/v1/posts は既に limit/offset パラメータに対応しているが、クライアント側が使っていない。"
+      "passes": true,
+      "notes": "2026-03-20 完了。useInfiniteFetch が ?limit=30&offset=N をAPIに付与。全データ取得+クライアントsliceを廃止。全エンドポイント（posts, comments, search, user/posts）が既にlimit/offset対応済み。"
     },
     {
       "id": "US-017",
@@ -384,6 +384,40 @@
       "priority": 21,
       "passes": false,
       "notes": "CSS aspect-ratio は Chrome でサポート済み。JS 計算が不要になればTBT改善にも寄与する。"
+    },
+    {
+      "id": "US-023",
+      "title": "感情分析のサーバーサイド化",
+      "description": "開発者として、検索キーワードの感情分析（kuromoji + negaposi-analyzer-ja）をブラウザからサーバーに移動し、クライアントバンドルからkuromoji辞書と形態素解析ライブラリを除去したい。",
+      "acceptanceCriteria": [
+        "サーバーに感情分析エンドポイント（例: GET /api/v1/sentiment?text=...）が追加されている、または検索APIのレスポンスに感情ラベルが含まれている",
+        "クライアントの negaposi_analyzer.ts から kuromoji と negaposi-analyzer-ja のインポートが削除されている",
+        "SearchPage.tsx がサーバーから感情判定結果を取得して「どしたん話聞こうか?」を表示している",
+        "ネガティブ判定のE2Eテスト（search.test.ts のネガティブ判定テスト群）が通る",
+        "E2Eテスト（cd application/e2e && pnpm test）が通る",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": true,
+      "notes": "2026-03-20 完了。GET /api/v1/sentiment?text=... エンドポイント追加。kuromoji+negaposi-analyzer-jaをサーバーに追加。SearchPageがサーバーAPIから感情判定を取得。トークナイザーはシングルトンでキャッシュ。クライアントのnegaposi_analyzer.tsインポートを削除。"
+    },
+    {
+      "id": "US-024",
+      "title": "検索APIクエリ一本化と構造化パラメータ化",
+      "description": "開発者として、検索APIの2回クエリ（テキスト検索+ユーザー名検索）を1回のSQLに統合し、FEから構造化パラメータ（keywords, since, until）を送ることでBE側のparseSearchQueryを廃止したい。",
+      "acceptanceCriteria": [
+        "FEのSearchContainerがAPIに q=keywords&since=YYYY-MM-DD&until=YYYY-MM-DD の構造化パラメータを送っている",
+        "サーバー側search.tsのparseSearchQueryインポートが削除されている",
+        "サーバー側のテキスト検索とユーザー名検索が1つのSQLクエリ（OR条件）に統合されている",
+        "JS上でのマージ・重複排除・ソートが不要になっている",
+        "検索結果が正しく表示される（キーワード検索、日付範囲検索、組み合わせ検索）",
+        "検索条件テキスト（「写真」2026-01-01 以降 の検索結果）が正しく表示される",
+        "E2Eテスト（cd application/e2e && pnpm test）が通る",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": true,
+      "notes": "2026-03-20 完了。FEがparseSearchQueryの結果をkeywords/since/untilパラメータとしてAPIに送信。BE側parseSearchQuery廃止。ユーザーIDを先に取得→Post.findAllでtext LIKE OR userId IN条件で1クエリ化。createdAt DESCソートはJSで実行（Sequelize subQuery+多対多JOINとの互換性のため）。"
     },
     {
       "id": "US-022",

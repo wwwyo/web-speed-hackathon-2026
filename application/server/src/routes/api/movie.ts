@@ -32,7 +32,12 @@ movieRouter.post("/movies", async (req, res) => {
   let mp4Buffer: Buffer;
   try {
     mp4Buffer = await convertMovie(req.body);
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("timed out") || message.includes("ENOMEM") || message.includes("ENOSPC") || message.includes("EPERM")) {
+      console.error("[movie] server error during conversion:", message);
+      throw new httpErrors.InternalServerError("Video conversion failed");
+    }
     throw new httpErrors.BadRequest("Failed to convert video file");
   }
 

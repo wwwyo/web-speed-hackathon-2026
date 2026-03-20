@@ -16,6 +16,8 @@ if (ffmpegPath) {
  * - 正方形にクロップ
  * - 10fps、音声なし
  */
+const TIMEOUT_MS = 30_000;
+
 export async function convertMovie(input: Buffer): Promise<Buffer> {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "movie-"));
   const inputPath = path.join(tmpDir, `input-${randomUUID()}`);
@@ -25,7 +27,7 @@ export async function convertMovie(input: Buffer): Promise<Buffer> {
     await fs.writeFile(inputPath, input);
 
     await new Promise<void>((resolve, reject) => {
-      ffmpeg(inputPath)
+      const command = ffmpeg(inputPath)
         .outputOptions([
           "-t", "5",
           "-r", "10",
@@ -35,9 +37,21 @@ export async function convertMovie(input: Buffer): Promise<Buffer> {
           "-movflags", "+faststart",
         ])
         .output(outputPath)
-        .on("end", () => resolve())
-        .on("error", (err: Error) => reject(err))
-        .run();
+        .on("end", () => {
+          clearTimeout(timer);
+          resolve();
+        })
+        .on("error", (err: Error) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+
+      command.run();
+
+      const timer = setTimeout(() => {
+        command.kill("SIGKILL");
+        reject(new Error("Video conversion timed out"));
+      }, TIMEOUT_MS);
     });
 
     return await fs.readFile(outputPath);

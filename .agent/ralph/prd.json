@@ -89,7 +89,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "タイムラインで投稿が追加されるたびに全 TimelineItem が再レンダリングされている。React.memo でプロップスが変わらない項目の再描画をスキップする。"
     },
     {

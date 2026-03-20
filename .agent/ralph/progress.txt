@@ -191,3 +191,54 @@ Quality Checks:
 
 Commit:
 - Message: `feat: [US-004] - CLS 改善（画像・動画の width/height 明示）`
+
+---
+
+## 2026-03-21 - US-005 React.memo によるリスト再レンダリング抑制
+
+Implementation:
+- `application/client/src/components/timeline/TimelineItem.tsx` を `TimelineItemComponent` + `React.memo` に整理し、既存のクリック遷移やメディア描画を変えずに安定 props の投稿行を再利用できるよう変更
+- `application/client/src/components/post/CommentItem.tsx` を `CommentItemComponent` + `React.memo` に整理し、投稿詳細のコメント行を親再レンダリングから切り離し
+- `application/client/src/components/direct_message/DirectMessageListPage.tsx` で DM 一覧行を `DirectMessageConversationListItem` として切り出して `React.memo` 化し、会話オブジェクト全体ではなく `conversationId` / `peerName` / `lastMessageBody` / `hasUnread` などの表示用 primitive props を渡す構成へ変更
+- `application/client/src/components/direct_message/DirectMessageListPage.tsx` で DM 一覧親側の `messages` 走査をやめ、`/api/v1/dm` が返す `hasUnread` と最新 1 件メッセージだけをそのまま使うようにして、レビューで指摘された「refetch ごとに新規オブジェクトとなり memo が効きにくい」点を解消
+- 再利用知見として、API フェッチ由来のリストで `React.memo` を効かせるには primitive props に落として渡すことを `AGENTS.md` に追記
+
+Acceptance Criteria Verification:
+- AC: TimelineItem コンポーネントが React.memo でラップされている
+  Test case: `application/client/src/components/timeline/TimelineItem.tsx` の実装確認
+  Result: `TimelineItemComponent` を `memo()` でラップし、`TimelineItem.displayName = "TimelineItem"` を付与していることを確認
+- AC: CommentItem コンポーネントが React.memo でラップされている
+  Test case: `application/client/src/components/post/CommentItem.tsx` の実装確認
+  Result: `CommentItemComponent` を `memo()` でラップし、`CommentItem.displayName = "CommentItem"` を付与していることを確認
+- AC: DirectMessageListPage の会話リスト項目が React.memo でラップされている（または別コンポーネントに抽出してラップ）
+  Test case: `application/client/src/components/direct_message/DirectMessageListPage.tsx` の実装確認
+  Result: 会話行を `DirectMessageConversationListItem` に抽出して `memo()` でラップし、表示に必要な primitive props だけを渡す形に変更したことを確認
+- AC: タイムラインの無限スクロールが正しく動作する
+  Test case: `curl -s -X POST http://127.0.0.1:3011/api/v1/initialize >/dev/null && CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/search.test.ts --grep '検索結果のタイムラインが無限スクロールで追加読み込みされること'`
+  Result: 1 test passed。`SearchContainer` でも同じ `useInfiniteFetch` + `TimelineItem` の組み合わせで追加読み込み時に件数増加を確認
+- AC: コメントの表示・投稿が正しく動作する
+  Test case: `curl -s -X POST http://127.0.0.1:3011/api/v1/initialize >/dev/null && CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/post-detail.test.ts`; `curl -s -X POST http://127.0.0.1:3011/api/v1/initialize >/dev/null && CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/posting.test.ts --grep 'テキストの投稿ができる'`
+  Result: 投稿詳細でコメントを含む記事表示が崩れていないことを確認し、既存の投稿フローも 1 test passed で通過
+- AC: 該当箇所のE2Eテストが通っていること
+  Test case: `curl -s -X POST http://127.0.0.1:3011/api/v1/initialize >/dev/null && CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/home.test.ts src/post-detail.test.ts src/dm.test.ts`
+  Result: 31 tests passed
+- AC: codex skill で review を受けること
+  Test case: 別 Codex エージェント `Boole` にローカル変更のレビューを移譲し、指摘対応後に再レビュー
+  Result: 初回レビューで「DM 一覧に conversation オブジェクトを渡すと refetch ごとに identity が変わり memo が効きにくい」との指摘を受領。会話行 props を primitive へ細分化し、親側の `messages` 走査も削除したうえで再レビューし、重大な残件なしを確認
+- AC: Typecheck passes
+  Test case: `mise exec -- pnpm typecheck`
+  Result: passed
+
+Quality Checks:
+- `mise trust` -> passed (`No untrusted config files found.`)
+- `mise install` -> passed (`mise all tools are installed`)
+- `mise exec -- pnpm typecheck` -> passed
+- `mise exec -- pnpm build` -> passed (Rspack size warning only)
+- `curl -s -X POST http://127.0.0.1:3011/api/v1/initialize >/dev/null && CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/home.test.ts src/post-detail.test.ts src/dm.test.ts` -> passed (31 tests)
+- `curl -s -X POST http://127.0.0.1:3011/api/v1/initialize >/dev/null && CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/search.test.ts --grep '検索結果のタイムラインが無限スクロールで追加読み込みされること'` -> passed (1 test)
+- `curl -s -X POST http://127.0.0.1:3011/api/v1/initialize >/dev/null && CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/posting.test.ts --grep 'テキストの投稿ができる'` -> passed (1 test)
+- `agent-browser open http://127.0.0.1:3011/ && agent-browser wait --load networkidle && agent-browser snapshot -i` -> passed (ホーム画面のタイムライン項目とサインイン導線をブラウザで確認)
+- `agent-browser click @e153 && agent-browser wait 500 && agent-browser snapshot -i` -> passed (サインインモーダルの入力 UI をブラウザで確認)
+
+Commit:
+- Message: `feat: [US-005] - React.memo によるリスト再レンダリング抑制`

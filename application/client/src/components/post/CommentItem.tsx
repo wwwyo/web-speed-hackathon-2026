@@ -1,13 +1,18 @@
+import { memo } from "react";
+
 import { Link } from "@web-speed-hackathon-2026/client/src/components/foundation/Link";
 import { ProfileImage } from "@web-speed-hackathon-2026/client/src/components/foundation/ProfileImage";
 import { TranslatableText } from "@web-speed-hackathon-2026/client/src/components/post/TranslatableText";
-import { formatDate, toISOString } from "@web-speed-hackathon-2026/client/src/utils/format_date";
+import {
+  formatDate,
+  toISOString,
+} from "@web-speed-hackathon-2026/client/src/utils/format_date";
 
 interface Props {
   comment: Models.Comment;
 }
 
-export const CommentItem = ({ comment }: Props) => {
+const CommentItemComponent = ({ comment }: Props) => {
   return (
     <article className="hover:bg-cax-surface-subtle px-1 sm:px-4">
       <div className="border-cax-border flex border-b px-2 pt-2 pb-4 sm:px-4">
@@ -52,3 +57,6 @@ export const CommentItem = ({ comment }: Props) => {
     </article>
   );
 };
+
+export const CommentItem = memo(CommentItemComponent);
+CommentItem.displayName = "CommentItem";

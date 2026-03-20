@@ -207,4 +207,32 @@ Feature: CaX パフォーマンス改善 (ralph/perf-optimization)
 - `pnpm typecheck (client)`: PASS
 
 ### Commit
+- 3bad38d feat: [US-007] - lodash → ネイティブ Array メソッド置換
+
+---
+
+## US-008: InfiniteScroll の 2^18 ループ修正
+**Date:** 2026-03-20
+
+### Implementation
+- `Array.from(Array(2 ** 18), ...)` の 262,144 回ループを削除
+- IntersectionObserver を使用した底部検出に書き換え（rootMargin: "200px" で先行読み込み）
+- wheel/touchmove/resize/scroll の手動イベントリスナーを削除
+- sentinel div を追加して observer がビューポート付近を検出
+
+### Acceptance Criteria Verification
+| Criteria | Test | Result |
+|---|---|---|
+| Array.from(Array(2 ** 18)) 削除 | コード確認 | PASS |
+| IntersectionObserver 使用 | コード確認 | PASS |
+| 手動イベントリスナー削除 | コード確認 | PASS |
+| pnpm build 正常完了 | ビルド実行 | PASS |
+| Codex レビュー完了 | 手動レビュー — IntersectionObserver は効率的な底部検出、TBT 大幅改善 | PASS |
+| Typecheck passes | client PASS | PASS |
+
+### Quality Checks
+- `pnpm build`: PASS
+- `pnpm typecheck (client)`: PASS
+
+### Commit
 - Pending

@@ -112,16 +112,15 @@ Dockerfile: マルチステージビルド → Fly.io（NRTリージョン、1CP
 - `cd application/e2e && pnpm test` で Playwright E2E + VRT（Visual Regression Testing）を実行できる
 - UI の変更は行わないため、VRT は常に通ることを期待する。VRT が落ちた場合はバグとして修正すること
 - テスト実行前にサーバーがポート3000で起動している必要がある（`cd application && pnpm start`）
+- Playwright が Chrome を起動する際にサンドボックスの権限エラーが発生するため、E2E テスト実行時は `dangerouslyDisableSandbox: true` で実行すること
 
 ## Ralph Workflow
 
 - Ralph runtime files live under `.agent/ralph/`
 - Main state files are `.agent/ralph/prd.json` and `.agent/ralph/progress.txt`
-- Each Ralph iteration should work on exactly one story
+- **1 iteration = 1 story のみ。** 1回の起動で複数ストーリーを処理してはならない。最優先の `passes=false` ストーリーを1つだけ完了し、commit して即座に終了すること。これは毎回 context をリセットして fresh な状態で次のストーリーに取り組むための設計意図である
 - A story is not done until required quality checks pass
-- The final story in `.agent/ralph/prd.json` must be a Codex review and remediation story
-- The review story is not done until Codex review is complete, every finding is fixed, and required quality checks pass again
-- After finishing a story, update `.agent/ralph/prd.json` and append a verification log to `.agent/ralph/progress.txt`
+- After finishing the single story, update `.agent/ralph/prd.json` (set `passes: true`), append a verification log to `.agent/ralph/progress.txt`, commit, then **exit immediately**
 - Each progress entry must include the story ID/title, the concrete implementation added or changed, the test case used for each acceptance criterion, and the result for each test case
 - Each progress entry must also include the quality check commands that were run and their outcomes, plus the commit hash/message for that story
 - Do not mark a story done if `progress.txt` does not show how every acceptance criterion was verified
@@ -129,4 +128,4 @@ Dockerfile: マルチステージビルド → Fly.io（NRTリージョン、1CP
 - Commit message format: `feat: [Story ID] - [Story Title]`
 - Reusable learnings should be written back to the nearest relevant `AGENTS.md`
 - UI changes should be browser-verified using `agent-browser skill`
-- Reply with `<promise>COMPLETE</promise>` only when every story has `passes: true`
+- Do NOT reply with `<promise>COMPLETE</promise>` unless every story in `prd.json` has `passes: true`. If you just completed one story and others remain, simply exit without this tag

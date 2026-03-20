@@ -145,8 +145,8 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "2026-03-20 完了。2^18 ループを IntersectionObserver に置換。wheel/touchmove/resize/scroll リスナー削除。"
     },
     {
       "id": "US-009",

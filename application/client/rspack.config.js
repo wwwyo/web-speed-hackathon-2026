@@ -109,14 +109,6 @@ const config = {
     minimize: true,
     splitChunks: {
       chunks: "all",
-      cacheGroups: {
-        styles: {
-          name: "main",
-          type: "css/mini-extract",
-          chunks: "all",
-          enforce: true,
-        },
-      },
     },
   },
   ignoreWarnings: [],

@@ -431,8 +431,8 @@
         "Typecheck passes"
       ],
       "priority": 22,
-      "passes": false,
-      "notes": "現在は全静的ファイルに maxAge: 7d が設定されている。ハッシュ付きファイルは immutable で 1年キャッシュにできる。HTML は短いキャッシュにする必要がある。"
+      "passes": true,
+      "notes": "2026-03-20 完了。chunk-[contenthash].js に immutable キャッシュ設定。index.html に no-cache 設定。その他は 7日キャッシュ。"
     },
     {
       "id": "US-025",

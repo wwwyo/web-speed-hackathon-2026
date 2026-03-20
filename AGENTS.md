@@ -111,8 +111,18 @@ Dockerfile: マルチステージビルド → Fly.io（NRTリージョン、1CP
 
 - `cd application/e2e && pnpm test` で Playwright E2E + VRT（Visual Regression Testing）を実行できる
 - UI の変更は行わないため、VRT は常に通ることを期待する。VRT が落ちた場合はバグとして修正すること
-- テスト実行前にサーバーがポート3000で起動している必要がある（`cd application && pnpm start`）
+- テスト実行前にbuild & startで最新の変更が反映する。ポート3000で起動している必要がある
+  - `cd application && pnpm build && pnpm start`
 - Playwright が Chrome を起動する際にサンドボックスの権限エラーが発生するため、E2E テスト実行時は `dangerouslyDisableSandbox: true` で実行すること
+最初のe2e結果はこの通り。下記二つはflakyとして扱って良い。
+```
+ Slow test file: [Desktop Chrome] › src/posting.test.ts (21.9s)
+  Consider running tests from slow files in parallel, see https://playwright.dev/docs/test-parallel.
+  2 flaky
+    [Desktop Chrome] › src/crok-chat.test.ts:13:3 › Crok AIチャット › サジェスト候補が表示される ──────────────
+    [Desktop Chrome] › src/dm.test.ts:38:3 › DM一覧 › 新規DM開始モーダルが初期仕様通りにバリデーションされること ───────────
+  50 passed (3.3m)
+```
 
 ## Ralph Workflow
 

@@ -90,37 +90,9 @@ pnpm ワークスペースによるモノレポ（`application/` 配下）。
 - `HtmlRspackPlugin` で `inject: true`（script/link タグ自動挿入）
 - KaTeX フォントを `CopyRspackPlugin` で dist にコピー
 
-## 完了済みの改善
+## チューニング知見
 
-- ~~jQuery依存のAPI層~~ → fetch API に置換（US-006）
-- ~~core-js/regenerator-runtime の不要なポリフィル~~ → 削除（US-002）
-- ~~lodash（全体インポート）~~ → ネイティブ Array メソッドに置換（US-007）
-- ~~Tailwind CDN版~~ → ビルド時生成（PostCSS）に移行（US-014）
-- ~~Cache-Control: max-age=0~~ → 適切なキャッシュ設定 + immutable（US-003, US-022）
-- ~~Connection: close ヘッダー~~ → 削除（US-003）
-- ~~画像の未最適化~~ → WebP 変換・リサイズ（US-009）
-- ~~GIF動画~~ → MP4 変換 + `<video>` タグ化（US-010）
-- ~~OTFフォント~~ → WOFF2 サブセット + font-display: swap（US-011）
-- ~~bluebird~~ → native Promise に置換（US-019）
-- ~~InfiniteScroll の 2^18 ループ~~ → IntersectionObserver（US-008）
-- ~~AspectRatioBox の setTimeout(500)~~ → CSS aspect-ratio（US-021）
-- ~~SSE crok の意図的遅延~~ → 削除（US-018）
-- ~~感情分析のクライアント処理~~ → サーバーサイド API 化（US-023）
-- ~~検索 API の 2 回クエリ~~ → 1 クエリに統合（US-024）
-- ~~kuromoji 静的 import~~ → dynamic import（US-020）
-- ~~CoveredImage バイナリ取得~~ → 直接 `<img src>`（US-012）
-- ~~SoundPlayer バイナリ取得~~ → 直接 `<audio src>`（US-013）
-- ~~ルート単位コード分割なし~~ → React.lazy + Suspense（US-015）
-- ~~useInfiniteFetch 全データ取得~~ → サーバーサイドページネーション（US-016）
-- ~~画像 lazy loading なし~~ → loading="lazy" 追加（US-017）
-
-## 主要な改善ポイント（まだ残っている遅い箇所）
-
-- 音声波形のクライアント計算（SoundWaveSVG が fetch + decodeAudioData で毎回計算）→ サーバーサイド事前計算が必要（US-025）
-- FFmpeg WASM がクライアントに残っている（投稿時の動画変換用）
-- @mlc-ai/web-llm（ブラウザ内LLM、巨大バンドル）
-- CSS チャンク分割による FOUC（splitChunks で CSS が遅延ロードされる）
-- redux-form（レガシー依存）
+パフォーマンス改善の詳細な攻略知見は [.claude/skills/wsh-tuning/](.claude/skills/wsh-tuning/) を参照。
 
 ## テストアカウント
 

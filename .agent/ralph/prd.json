@@ -1,7 +1,7 @@
 {
   "project": "CaX パフォーマンス改善 Phase 2",
   "branchName": "ralph/perf-phase2",
-  "description": "Phase 1（ビルド最適化・アセット圧縮・遅延削除・コード分割等）完了後の、DB/API/フロントエンド再レンダリング最適化。Lighthouse 操作スコア（TBT/INP）とAPI応答速度の改善が主目標。",
+  "description": "Phase 1（ビルド最適化・アセット圧縮・遅延削除・コード分割・再レンダリング抑制等）完了後の、DB/API/フロントエンド最適化。Lighthouse 操作スコア（TBT/INP）とAPI応答速度の改善が主目標。",
   "userStories": [
     {
       "id": "US-001",
@@ -37,28 +37,11 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "現在の defaultScope は initiator+member+profileImage+全messages+sender+profileImage を常時ロード。DM一覧で数千メッセージがレスポンスに含まれる可能性がある。server/src/models/DirectMessageConversation.ts:49-62 参照。"
     },
     {
       "id": "US-003",
-      "title": "DirectMessagePage の setInterval(1ms) 修正",
-      "description": "開発者として、DirectMessagePage の 1ms間隔ポーリング（body高さ計算+スクロール）を効率的な実装に置き換え、INP を改善したい。",
-      "acceptanceCriteria": [
-        "DirectMessagePage.tsx の setInterval(1ms) が削除されている",
-        "ResizeObserver、MutationObserver、または WebSocket メッセージ受信時のコールバックで代替されている",
-        "DM ページでメッセージが追加された際に自動的に最下部にスクロールする",
-        "DM ページの操作時にメインスレッドのブロッキングが発生しない",
-        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
-        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
-        "Typecheck passes"
-      ],
-      "priority": 3,
-      "passes": false,
-      "notes": "client/src/components/direct_message/DirectMessagePage.tsx:77-83 で 1ms 間隔の setInterval が DOM 高さ計算とスクロールを実行。INP 直撃のボトルネック。"
-    },
-    {
-      "id": "US-004",
       "title": "DirectMessage afterSave フック N+1 修正",
       "description": "開発者として、DirectMessage の afterSave フックで発生する N+1 クエリ（保存直後の findByPk + 未読カウント）を最適化したい。",
       "acceptanceCriteria": [
@@ -70,12 +53,12 @@
         "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
         "Typecheck passes"
       ],
-      "priority": 4,
+      "priority": 3,
       "passes": false,
       "notes": "server/src/models/DirectMessage.ts:75-107 の afterSave で findByPk + 複雑な include 付き count を実行。メッセージ送信ごとに最低2回の追加クエリ。"
     },
     {
-      "id": "US-005",
+      "id": "US-004",
       "title": "CLS 改善（画像・動画の width/height 明示）",
       "description": "開発者として、img/video タグに width/height を明示し、レイアウトシフトをゼロに近づけたい。プロフィール画像が AspectRatioBox でカバーされておらず CLS を引き起こしている。",
       "acceptanceCriteria": [
@@ -87,12 +70,12 @@
         "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
         "Typecheck passes"
       ],
-      "priority": 5,
+      "priority": 4,
       "passes": false,
       "notes": "AspectRatioBox でカバーされているコンテンツ画像/動画は CSS aspect-ratio が効いているが、プロフィール画像（丸アイコン）は Tailwind クラスのみで width/height 属性が未指定。"
     },
     {
-      "id": "US-006",
+      "id": "US-005",
       "title": "React.memo によるリスト再レンダリング抑制",
       "description": "開発者として、TimelineItem・CommentItem・DM会話リスト項目を React.memo でラップし、親コンポーネントの再レンダリング時の不要な子コンポーネント再描画を防ぎたい。",
       "acceptanceCriteria": [
@@ -105,28 +88,12 @@
         "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
         "Typecheck passes"
       ],
-      "priority": 6,
+      "priority": 5,
       "passes": false,
       "notes": "タイムラインで投稿が追加されるたびに全 TimelineItem が再レンダリングされている。React.memo でプロップスが変わらない項目の再描画をスキップする。"
     },
     {
-      "id": "US-007",
-      "title": "SoundPlayer onTimeUpdate の高頻度 setState 最適化",
-      "description": "開発者として、SoundPlayer の onTimeUpdate イベントで毎フレーム setState している進捗バー更新を、rAF デバウンスまたは CSS アニメーションに置き換えたい。",
-      "acceptanceCriteria": [
-        "SoundPlayer.tsx の onTimeUpdate による setState が最適化されている（rAF デバウンス、CSS animation、または ref ベースの DOM 更新）",
-        "音声再生中のプログレスバーが滑らかに動く",
-        "音声の再生・一時停止が正しく動作する",
-        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
-        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
-        "Typecheck passes"
-      ],
-      "priority": 7,
-      "passes": false,
-      "notes": "client/src/components/foundation/SoundPlayer.tsx:18,61 で onTimeUpdate → setCurrentTimeRatio → inline style 更新。毎秒複数回の setState でコンポーネントツリー全体が再レンダリングされる。"
-    },
-    {
-      "id": "US-008",
+      "id": "US-006",
       "title": "FastAverageColor のメインスレッドブロック修正",
       "description": "開発者として、UserProfileHeader で FastAverageColor の precision モード画像処理がメインスレッドをブロックしている問題を修正したい。",
       "acceptanceCriteria": [
@@ -137,12 +104,12 @@
         "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
         "Typecheck passes"
       ],
-      "priority": 8,
+      "priority": 6,
       "passes": false,
       "notes": "client/src/components/user_profile/UserProfileHeader.tsx:17-22 で FastAverageColor({ mode: 'precision' }) を実行。画像ピクセル全走査でメインスレッドを数十ms ブロック。"
     },
     {
-      "id": "US-009",
+      "id": "US-007",
       "title": "ChatMessage Markdown の key={content} リマウント修正",
       "description": "開発者として、ChatMessage の Markdown コンポーネントに key={content} が設定されているためストリーミング時に毎回リマウントされる問題を修正したい。",
       "acceptanceCriteria": [
@@ -153,12 +120,12 @@
         "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
         "Typecheck passes"
       ],
-      "priority": 9,
+      "priority": 7,
       "passes": false,
       "notes": "client/src/components/crok/ChatMessage.tsx:37 で key={content} が設定されているため、SSE でテキストが1文字増えるたびに Markdown コンポーネント全体がアンマウント→再マウントされる。"
     },
     {
-      "id": "US-010",
+      "id": "US-008",
       "title": "splitChunks ベンダーチャンク分離",
       "description": "開発者として、react/react-dom 等の変更頻度の低いベンダーライブラリを専用チャンクに分離し、キャッシュ効率を向上させたい。",
       "acceptanceCriteria": [
@@ -171,7 +138,7 @@
         "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
         "Typecheck passes"
       ],
-      "priority": 10,
+      "priority": 8,
       "passes": false,
       "notes": "現在は splitChunks で CSS のみ cacheGroup 定義があり、JS ベンダーライブラリは自動分割に任せている。明示的に vendor チャンクを分離すればデプロイ時のキャッシュヒット率が向上。"
     }

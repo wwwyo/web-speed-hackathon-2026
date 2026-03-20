@@ -54,3 +54,50 @@ Quality Checks:
 
 Commit:
 - Message: `feat: [US-001] - SQLite インデックス追加`
+
+---
+
+## 2026-03-21 - US-002 DirectMessageConversation の全メッセージ eager load 廃止
+
+Implementation:
+- `application/server/src/models/DirectMessageConversation.ts` の `defaultScope` から `messages` include を除去し、会話一覧取得時に全メッセージを常時 eager load しないよう変更
+- `application/server/src/routes/api/direct_message.ts` の `GET /dm` を組み直し、会話参加者は通常ロードしつつ、最新メッセージ 1 件だけを window function で抽出して返すよう変更
+- `application/server/src/routes/api/direct_message.ts` の `GET /dm` で会話ごとの未読有無を別クエリで集計し、一覧レスポンスに `hasUnread` を追加
+- `application/server/src/routes/api/direct_message.ts` の `GET /dm/:conversationId` は `messages` を `separate: true` で個別ロードするよう変更し、DM 詳細では従来どおり全履歴を取得できるよう維持
+- `application/client/src/components/direct_message/DirectMessageListPage.tsx` を一覧レスポンスの `hasUnread` に対応させ、最新メッセージ 1 件だけを前提に UI を維持
+
+Acceptance Criteria Verification:
+- AC: DirectMessageConversation の defaultScope から messages の include が除去されている
+  Test case: `application/server/src/models/DirectMessageConversation.ts` の実装確認
+  Result: `defaultScope` が `initiator` と `member` のみを include し、`messages` eager load を含まないことを確認
+- AC: GET /dm（会話一覧）で全メッセージがロードされない（最新メッセージのみ or メッセージなし）
+  Test case: `mise exec -- pnpm exec node --input-type=module --eval 'const baseUrl = "http://127.0.0.1:3011"; const password = "wsh-2026"; const signin = async (username) => { const res = await fetch(`${baseUrl}/api/v1/signin`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username, password }) }); if (!res.ok) throw new Error(`signin failed: ${res.status}`); const cookie = res.headers.get("set-cookie"); if (!cookie) throw new Error("missing cookie"); return cookie.split(";")[0]; }; const initialize = await fetch(`${baseUrl}/api/v1/initialize`, { method: "POST" }); if (!initialize.ok) throw new Error(`initialize failed: ${initialize.status}`); const cookie = await signin("gg3i6j6"); const listRes = await fetch(`${baseUrl}/api/v1/dm`, { headers: { cookie } }); if (!listRes.ok) throw new Error(`dm list failed: ${listRes.status}`); const list = await listRes.json(); const conversation = list.find((item) => [item.initiator.username, item.member.username].includes("jirgqx22")); if (!conversation) throw new Error("target conversation not found"); if (conversation.messages.length !== 1) throw new Error(`expected latest message only, got ${conversation.messages.length}`); console.log(JSON.stringify({ conversationId: conversation.id, listMessages: conversation.messages.length }, null, 2));'`
+  Result: `gg3i6j6` と `jirgqx22` の会話一覧レスポンスで `messages.length === 1` を確認
+- AC: GET /dm/:conversationId/messages 等の個別エンドポイントでメッセージを取得する設計になっている
+  Test case: 同上 Node コマンド内で `GET /api/v1/dm/:conversationId` を続けて実行
+  Result: 一覧では 1 件のみ、詳細では同一会話が `490` 件の `messages` を返し、全履歴取得が個別取得側へ分離されたことを確認
+- AC: DM一覧ページで会話リストが正しく表示される
+  Test case: `CI=1 E2E_BASE_URL=http://localhost:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/dm.test.ts`
+  Result: DM 一覧表示、ソート、新規 DM 開始、一覧リアルタイム更新を含む関連テストが通過
+- AC: DM個別ページでメッセージが正しく表示される
+  Test case: `CI=1 E2E_BASE_URL=http://localhost:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/dm.test.ts`
+  Result: DM 詳細表示、古い順ソート、送信、入力中表示、既読反映、スクロール追従を含む関連テストが通過
+- AC: 該当箇所のE2Eテストが通っていること
+  Test case: `CI=1 E2E_BASE_URL=http://localhost:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/dm.test.ts`
+  Result: 17 tests passed
+- AC: codex skill で review を受けること
+  Test case: 別 Codex エージェント `Franklin` にローカル変更のレビューを移譲
+  Result: 重大な findings なし。raw SQL の window function は SQLite バージョン互換性だけ留意点とのレビュー結果を確認
+- AC: Typecheck passes
+  Test case: `mise exec -- pnpm typecheck`
+  Result: passed
+
+Quality Checks:
+- `mise trust` -> passed (`No untrusted config files found.`)
+- `mise install` -> passed (`mise all tools are installed`)
+- `mise exec -- pnpm typecheck` -> passed
+- `mise exec -- pnpm build` -> passed (Rspack size warning only)
+- `CI=1 E2E_BASE_URL=http://localhost:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/dm.test.ts` -> passed (17 tests)
+
+Commit:
+- Message: `feat: [US-002] - DirectMessageConversation の全メッセージ eager load 廃止`

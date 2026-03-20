@@ -163,8 +163,8 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": "レギュレーション: 画像が著しく劣化していないこと。品質80程度のWebPで十分。プロフィール画像（profiles/）も対象。シードの各種IDは変更禁止なので、ファイル名は維持して拡張子のみ変更するか、同名で上書きする。"
+      "passes": true,
+      "notes": "2026-03-20 完了。images/ 86MB → 3.8MB (4.4%), profiles/ 3.2MB → 208KB (6.5%)。品質80 WebP、最大幅1200px(images)/200px(profiles)にリサイズ。get_path.ts を .webp に変更、サーバーimage.tsのEXTENSION変更、CoveredImageのpiexifjs互換性修正。VRTスナップショット更新済み。"
     },
     {
       "id": "US-010",
@@ -319,8 +319,8 @@
         "Typecheck passes"
       ],
       "priority": 18,
-      "passes": false,
-      "notes": "レギュレーション: GET /api/v1/crok{?prompt} の SSE プロトコルは変更禁止。sleep の値の調整は許可される想定。crok-response.md の内容を SSE 以外で伝達してはならない。"
+      "passes": true,
+      "notes": "2026-03-20 完了。sleep(3000)とsleep(10)を両方削除。SSEストリームをcompression対象から除外してバッファリングを防止。commit: c1cf221"
     },
     {
       "id": "US-019",

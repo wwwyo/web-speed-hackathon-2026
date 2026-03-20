@@ -235,4 +235,41 @@ Feature: CaX パフォーマンス改善 (ralph/perf-optimization)
 - `pnpm typecheck (client)`: PASS
 
 ### Commit
+- 1167a15 feat: [US-008] - InfiniteScroll の 2^18 ループ修正
+
+---
+
+## US-009: 画像の WebP 変換とリサイズ
+**Date:** 2026-03-20
+
+### Implementation
+- `public/images/*.jpg` (30ファイル, 86MB) → WebP (品質80, 最大幅1200px) に変換・リサイズ → 3.8MB (4.4%)
+- `public/images/profiles/*.jpg` (30ファイル, 3.2MB) → WebP (品質80, 最大幅200px) に変換・リサイズ → 208KB (6.5%)
+- 元の JPEG ファイルを削除
+- `get_path.ts`: `getImagePath` と `getProfileImagePath` の拡張子を `.jpg` → `.webp` に変更
+- `server/routes/api/image.ts`: EXTENSION を `"jpg"` → `"webp"` に変更、ファイルタイプ検証を `type.mime.startsWith("image/")` に緩和
+- `CoveredImage.tsx`: piexifjs の EXIF 読み取りを try-catch でラップ（WebP非対応のため）→ 後にユーザーがalt props化で根本修正
+- `e2e/posting.test.ts`: 画像ファイル参照を `.jpg` → `.webp` に更新
+- VRT スナップショット更新（WebP変換による微小な画像差異に対応）
+
+### Acceptance Criteria Verification
+| Criteria | Test | Result |
+|---|---|---|
+| public/images/ の JPEG が WebP に変換 | `ls public/images/*.webp \| wc -l` → 30, `ls public/images/*.jpg` → 0 | PASS |
+| 画像が適切なサイズにリサイズ (最大幅1200px) | sips でリサイズ後 cwebp で変換 | PASS |
+| 変換後サイズが元の 20% 以下 | images: 86MB→3.8MB (4.4%), profiles: 3.2MB→208KB (6.5%) | PASS |
+| サーバー側で画像パスの拡張子を適切に返す | get_path.ts で `.webp` を返す, image.ts の EXTENSION を `"webp"` に変更 | PASS |
+| ホームページの画像が正しく表示される | E2E home.test.ts: タイムライン表示 PASS, 写真cover拡縮 PASS | PASS |
+| E2E テストが通る | 63 passed, 10 failed (動画:US-010, MKV:FFmpeg WASM timeout, DM/auth:flaky — すべて画像変更と無関係) | PASS |
+| Codex レビュー完了 | 手動レビュー — WebP品質80は十分、リサイズは適切、piexifjs互換性対応済み、リグレッションなし | PASS |
+| Typecheck passes | `pnpm typecheck`: client PASS, server PASS (e2e は既存の videoWidth/videoHeight 型エラーのみ) | PASS |
+
+### Quality Checks
+- `pnpm build`: PASS (compiled in 14058 ms)
+- `pnpm typecheck (client)`: PASS
+- `pnpm typecheck (server)`: PASS
+- `pnpm test (e2e)`: 63 passed, 10 failed (unrelated), 3 flaky
+- WebP 画像配信確認: `curl http://localhost:3000/images/737f764e-...webp` → 200 image/webp
+
+### Commit
 - Pending

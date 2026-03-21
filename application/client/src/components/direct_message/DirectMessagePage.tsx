@@ -35,6 +35,7 @@ export const DirectMessagePage = ({
   onSubmit,
 }: Props) => {
   const formRef = useRef<HTMLFormElement>(null);
+  const messageListRef = useRef<HTMLUListElement>(null);
   const textAreaId = useId();
 
   const peer =
@@ -78,12 +79,20 @@ export const DirectMessagePage = ({
     };
     scrollToBottom();
 
-    const observer = new MutationObserver(() => {
-      scrollToBottom();
-    });
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    const el = messageListRef.current;
+    if (!el) return;
 
-    return () => observer.disconnect();
+    let rafId = 0;
+    const observer = new MutationObserver(() => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(scrollToBottom);
+    });
+    observer.observe(el, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(rafId);
+    };
   }, []);
 
   if (conversationError != null) {
@@ -120,7 +129,7 @@ export const DirectMessagePage = ({
           </p>
         )}
 
-        <ul className="grid gap-3" data-testid="dm-message-list">
+        <ul className="grid gap-3" data-testid="dm-message-list" ref={messageListRef}>
           {conversation.messages.map((message) => {
             const isActiveUserSend = message.sender.id === activeUser.id;
 

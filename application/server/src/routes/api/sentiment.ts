@@ -24,7 +24,7 @@ function analyzeSentiment(
   let score = 0;
   for (const token of tokens) {
     const found = posiNegaDict.find(
-      (dict) => dict.surface === token.surface_form && dict.reading === token.reading,
+      (dict) => dict.surface === token.surface_form && dict.reading === (token.reading ?? ""),
     );
     if (found) {
       const rank = found.rank;

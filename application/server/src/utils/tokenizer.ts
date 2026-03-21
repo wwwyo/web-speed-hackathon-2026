@@ -2,12 +2,14 @@ import path from "node:path";
 
 import kuromoji, { type Tokenizer, type IpadicFeatures } from "kuromoji";
 
+import { PUBLIC_PATH } from "@web-speed-hackathon-2026/server/src/paths";
+
 let tokenizerPromise: Promise<Tokenizer<IpadicFeatures>> | null = null;
 
 export function getTokenizer(): Promise<Tokenizer<IpadicFeatures>> {
   if (!tokenizerPromise) {
     tokenizerPromise = new Promise((resolve, reject) => {
-      kuromoji.builder({ dicPath: path.resolve("../public/dicts") }).build((err, tokenizer) => {
+      kuromoji.builder({ dicPath: path.join(PUBLIC_PATH, "dicts") }).build((err, tokenizer) => {
         if (err) reject(err);
         else resolve(tokenizer);
       });

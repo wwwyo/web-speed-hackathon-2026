@@ -5,11 +5,11 @@
   "author": "CyberAgent, Inc.",
   "type": "module",
   "scripts": {
-    "build": "pnpm --filter @web-speed-hackathon-2026/client build",
+    "build": "pnpm --filter @web-speed-hackathon-2026/client build && pnpm --filter @web-speed-hackathon-2026/server build",
     "dev": "pnpm --filter @web-speed-hackathon-2026/server dev & pnpm --filter @web-speed-hackathon-2026/client dev",
     "start": "pnpm --filter @web-speed-hackathon-2026/server start",
     "typecheck": "pnpm run --recursive typecheck",
-    "e2e": "pnpm build && pnpm --filter @web-speed-hackathon-2026/server e2e:start & sleep 3 && E2E_BASE_URL=http://localhost:3010 pnpm --filter @web-speed-hackathon-2026/e2e test; kill %1 2>/dev/null",
+    "e2e": "pnpm build && (pnpm --filter @web-speed-hackathon-2026/server e2e:start & sleep 3 && E2E_BASE_URL=http://localhost:3010 pnpm --filter @web-speed-hackathon-2026/e2e test; kill %1 2>/dev/null)",
     "format": "pnpm run format:oxlint && pnpm run format:oxfmt",
     "format:oxlint": "oxlint --fix",
     "format:oxfmt": "oxfmt"
@@ -22,10 +22,11 @@
   "engines": {
     "node": "24.14.0"
   },
+  "packageManager": "pnpm@10.32.1",
   "pnpm": {
     "onlyBuiltDependencies": [
+      "esbuild",
       "ffmpeg-static"
     ]
-  },
-  "packageManager": "pnpm@10.32.1"
+  }
 }

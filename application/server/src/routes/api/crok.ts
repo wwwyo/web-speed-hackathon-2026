@@ -1,19 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { BM25 } from "bayesian-bm25";
 import { Router } from "express";
 import httpErrors from "http-errors";
 
-import { extractTokens, getTokenizer } from "@web-speed-hackathon-2026/server/src/utils/tokenizer";
-
 import suggestionsData from "@web-speed-hackathon-2026/server/src/data/suggestions.json" with { type: "json" };
+import { extractTokens, getTokenizer } from "@web-speed-hackathon-2026/server/src/utils/tokenizer";
 
 export const crokRouter = Router();
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const response = fs.readFileSync(path.join(__dirname, "crok-response.md"), "utf-8");
+const response = fs.readFileSync(path.join(import.meta.dirname, "crok-response.md"), "utf-8");
 
 // BM25 インデックスを事前構築
 const bm25 = new BM25({ k1: 1.2, b: 0.75 });

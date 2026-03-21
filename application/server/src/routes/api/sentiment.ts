@@ -1,8 +1,6 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { Router } from "express";
 
+import posiNegaDictRaw from "@web-speed-hackathon-2026/server/src/data/pn_ja.dic.json" with { type: "json" };
 import { getTokenizer } from "@web-speed-hackathon-2026/server/src/utils/tokenizer";
 
 interface DictEntry {
@@ -12,14 +10,15 @@ interface DictEntry {
   rank: number;
 }
 
+const posiNegaDict = posiNegaDictRaw as DictEntry[];
+
 const POSI_COUNT = 5122;
 const NEGA_COUNT = 49983;
 const NEGATIVE_CORRECTION = POSI_COUNT / NEGA_COUNT;
 
-const dictPath = path.resolve(import.meta.dirname, "../../data/pn_ja.dic.json");
-const posiNegaDict: DictEntry[] = JSON.parse(readFileSync(dictPath, "utf-8"));
-
-function analyzeSentiment(tokens: { surface_form: string; reading: string; pos: string }[]): number {
+function analyzeSentiment(
+  tokens: { surface_form: string; reading?: string; pos: string }[],
+): number {
   if (tokens.length === 0) return 0;
 
   let score = 0;

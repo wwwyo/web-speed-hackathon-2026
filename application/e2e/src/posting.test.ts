@@ -176,22 +176,35 @@ test.describe("投稿機能 - WAV音声", () => {
 
   test("Shift_JISで付与された作成者・タイトルのメタデータが文字化けせずに表示される", async ({ page }) => {
     const postText = "Shift_JISメタデータテスト";
+
     await openPostModal(page);
     await page.getByPlaceholder("いまなにしてる？").fill(postText);
+
     const fileInput = page.locator('input[type="file"][accept="audio/*"]');
-    const wavPath = path.resolve(import.meta.dirname, "../../../docs/assets/maoudamashii_shining_star.wav");
+    const wavPath = path.resolve(
+      import.meta.dirname,
+      "../../../docs/assets/maoudamashii_shining_star.wav",
+    );
     await fileInput.setInputFiles(wavPath);
+
     const submitButton = page.locator("dialog").getByRole("button", { name: "投稿する" });
     await expect(submitButton).toBeEnabled({ timeout: 120_000 });
     await submitButton.click();
+
     await page.waitForURL("**/posts/*", { timeout: 120_000 });
+
     const article = page.locator("article").first();
     await expect(article).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator("[data-sound-area]").first()).toBeVisible({ timeout: 60_000 });
+
     const soundArea = page.locator("[data-sound-area]").first();
+    await expect(soundArea).toBeVisible({ timeout: 60_000 });
     const textContent = await soundArea.innerText();
+
     expect(textContent).not.toMatch(/\?{2,}/);
     expect(textContent).not.toMatch(/[\ufffd]{2,}/);
+    await expect(soundArea).toContainText("魔王魂");
+    await expect(soundArea).toContainText("シャイニングスター");
+    await expect(page.getByText(postText)).toBeVisible();
   });
 });
 

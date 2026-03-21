@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
 
 import { PageTitle } from "@web-speed-hackathon-2026/client/src/components/application/PageTitle";
+import { RouteLoadingPage } from "@web-speed-hackathon-2026/client/src/components/application/RouteLoadingPage";
 import { DirectMessageGate } from "@web-speed-hackathon-2026/client/src/components/direct_message/DirectMessageGate";
 import { DirectMessagePage } from "@web-speed-hackathon-2026/client/src/components/direct_message/DirectMessagePage";
 import { NotFoundContainer } from "@web-speed-hackathon-2026/client/src/containers/NotFoundContainer";
@@ -23,10 +24,16 @@ const TYPING_INDICATOR_DURATION_MS = 10 * 1000;
 interface Props {
   activeUser: Models.User | null;
   authModalId: string;
+  isLoadingActiveUser: boolean;
 }
 
-export const DirectMessageContainer = ({ activeUser, authModalId }: Props) => {
+export const DirectMessageContainer = ({
+  activeUser,
+  authModalId,
+  isLoadingActiveUser,
+}: Props) => {
   const { conversationId = "" } = useParams<{ conversationId: string }>();
+  const canAccessConversation = !isLoadingActiveUser && activeUser !== null;
 
   const [conversation, setConversation] = useState<Models.DirectMessageConversation | null>(null);
   const [conversationError, setConversationError] = useState<Error | null>(null);
@@ -36,7 +43,7 @@ export const DirectMessageContainer = ({ activeUser, authModalId }: Props) => {
   const peerTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadConversation = useCallback(async () => {
-    if (activeUser == null) {
+    if (!canAccessConversation) {
       return;
     }
 
@@ -50,16 +57,24 @@ export const DirectMessageContainer = ({ activeUser, authModalId }: Props) => {
       setConversation(null);
       setConversationError(error as Error);
     }
-  }, [activeUser, conversationId]);
+  }, [canAccessConversation, conversationId]);
 
   const sendRead = useCallback(async () => {
+    if (!canAccessConversation) {
+      return;
+    }
+
     await sendJSON(`/api/v1/dm/${conversationId}/read`, {});
-  }, [conversationId]);
+  }, [canAccessConversation, conversationId]);
 
   useEffect(() => {
+    if (!canAccessConversation) {
+      return;
+    }
+
     void loadConversation();
     void sendRead();
-  }, [loadConversation, sendRead]);
+  }, [canAccessConversation, loadConversation, sendRead]);
 
   const handleSubmit = useCallback(
     async (params: DirectMessageFormData) => {
@@ -77,10 +92,14 @@ export const DirectMessageContainer = ({ activeUser, authModalId }: Props) => {
   );
 
   const handleTyping = useCallback(async () => {
-    void sendJSON(`/api/v1/dm/${conversationId}/typing`, {});
-  }, [conversationId]);
+    if (!canAccessConversation) {
+      return;
+    }
 
-  useWs(`/api/v1/dm/${conversationId}`, (event: DmUpdateEvent | DmTypingEvent) => {
+    void sendJSON(`/api/v1/dm/${conversationId}/typing`, {});
+  }, [canAccessConversation, conversationId]);
+
+  useWs(canAccessConversation ? `/api/v1/dm/${conversationId}` : null, (event: DmUpdateEvent | DmTypingEvent) => {
     if (event.type === "dm:conversation:message") {
       void loadConversation().then(() => {
         if (event.payload.sender.id !== activeUser?.id) {
@@ -102,6 +121,16 @@ export const DirectMessageContainer = ({ activeUser, authModalId }: Props) => {
       }, TYPING_INDICATOR_DURATION_MS);
     }
   });
+
+  if (isLoadingActiveUser) {
+    return (
+      <RouteLoadingPage
+        title="ダイレクトメッセージ - CaX"
+        headline="ダイレクトメッセージ"
+        description="ダイレクトメッセージを表示しています。"
+      />
+    );
+  }
 
   if (activeUser === null) {
     return (

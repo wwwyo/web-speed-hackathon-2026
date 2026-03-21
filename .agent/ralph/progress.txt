@@ -223,3 +223,58 @@ Quality Checks:
 Commit:
 - Hash: pending post-commit
 - Message: `feat: [US-013] - react-helmet を React 19 ネイティブに移行`
+
+## 2026-03-21 - US-015 AppContainer の認証API ブロッキング解除 + Suspense fallback 修正
+
+Implementation:
+- `application/client/src/containers/AppContainer.tsx` の `isLoadingActiveUser` 中の早期 return を廃止し、認証待ち中でも `AppPage` と `Routes` を描画したままに変更
+- `application/client/src/components/application/RouteLoadingPage.tsx` を新規追加し、`PageTitle` と見出し付きプレースホルダーを返す共通 route fallback を実装
+- `application/client/src/components/application/AppPage.tsx` と `application/client/src/components/application/Navigation.tsx` に `isLoadingActiveUser` を渡し、認証待ち中はナビゲーション骨格を表示しつつ、未確定のサインイン/DM/Crok 導線を誤表示しないよう調整
+- `application/client/src/containers/DirectMessageListContainer.tsx`、`application/client/src/containers/DirectMessageContainer.tsx`、`application/client/src/containers/CrokContainer.tsx` で `isLoadingActiveUser` 中は gate ではなく `RouteLoadingPage` を返すよう変更
+- `application/client/src/containers/DirectMessageContainer.tsx` に `canAccessConversation` ガードを追加し、認証確定前に `loadConversation` / `sendRead` / `typing` / WebSocket 接続が走らないよう修正
+- `application/client/src/hooks/use_ws.ts` を `null` URL で no-op できるように変更し、認証待ち中の WebSocket 副作用を hook レベルでも防止
+- `AGENTS.md` に、`/api/v1/me` 待ちで `AppContainer` を空にすると全画面白化するため、app shell を描画したまま auth 依存ページだけ fallback に寄せる知見を追記
+- 別 Codex エージェント (`Locke`) にレビューを依頼し、初回で DM side effect の指摘を受けて修正後、再レビューで `No findings` を確認
+
+Acceptance Criteria Verification:
+- AC: isLoadingActiveUser=true の間も Navigation コンポーネントとページルーティングが描画されている
+  Test case: `rg -n "return <PageTitle>読込中 - CaX</PageTitle>|fallback=\\{routeFallback\\}|isLoadingActiveUser=\\{isLoadingActiveUser\\}" application/client/src/containers/AppContainer.tsx -S`; `agent-browser open http://127.0.0.1:3001/not-found && agent-browser wait --load networkidle && agent-browser snapshot -i`
+  Result: `AppContainer.tsx` で early return は no matches となり、`AppPage` へ `isLoadingActiveUser` を渡したまま全 lazy route が `fallback={routeFallback}` で描画されることを確認。`agent-browser snapshot -i` でも title が `読込中 - CaX` の段階で `ホーム` / `検索` / `サインイン` / `利用規約` の導線が見えており、空白ではなく app shell が表示されていることを確認
+- AC: 認証API完了前でも各ページのコンテンツ構造（ヘッダー、ナビゲーション等）が表示される
+  Test case: `sed -n '1,220p' application/client/src/components/application/RouteLoadingPage.tsx`; `agent-browser open http://127.0.0.1:3001/ && agent-browser wait --load networkidle && agent-browser screenshot --full`; `agent-browser open http://127.0.0.1:3001/dm && agent-browser wait --load networkidle && agent-browser screenshot --full`
+  Result: `RouteLoadingPage` に見出し・説明・プレースホルダーが実装されていることを確認。production サーバー上でもホーム/DM の両 route で初期 title が `読込中 - CaX` と表示された直後にスクリーンショットを取得でき、白画面ではなく main 領域が構造付きで描画されることを確認
+- AC: 各ルートの Suspense fallback が null からローディング表示またはスケルトンに変更されている
+  Test case: `rg -n "fallback=\\{routeFallback\\}" application/client/src/containers/AppContainer.tsx -S`
+  Result: `/`, `/dm`, `/dm/:conversationId`, `/users/:username`, `/posts/:postId`, `/terms`, `/crok`, `*` の各 lazy route で `fallback={routeFallback}` が設定されていることを確認
+- AC: 認証API完了後に activeUser に応じた UI が正しく切り替わる
+  Test case: `curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:3001/api/v1/initialize`; `CI=1 E2E_BASE_URL=http://127.0.0.1:3001 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/dm.test.ts --grep 'DM一覧が表示される|送信ボタンをクリックすると、DM詳細画面に遷移すること'`; `agent-browser open http://127.0.0.1:3001/dm && agent-browser wait --load networkidle && agent-browser get title`
+  Result: DM 一覧/詳細遷移の E2E が passed。`agent-browser get title` でも最終的に `ダイレクトメッセージ - CaX` へ更新され、認証完了後に authenticated UI へ切り替わることを確認
+- AC: 未認証状態でアクセスした場合の挙動が正常である
+  Test case: `curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:3001/api/v1/initialize`; `CI=1 E2E_BASE_URL=http://127.0.0.1:3001 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/home.test.ts --grep 'タイムラインが表示される|タイトルが「タイムライン - CaX」'`; `curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:3001/api/v1/initialize`; `CI=1 E2E_BASE_URL=http://127.0.0.1:3001 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/dm.test.ts --grep '未サインインの場合、DMのリンクが表示されない'`
+  Result: ホームのタイムライン表示/title と、未サインイン時に DM リンクが表示されない既存挙動がともに production build + start サーバー上で passed
+- AC: 該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）
+  Test case: 上記 `home.test.ts` と `dm.test.ts` の 3 コマンド
+  Result: `home.test.ts` は `2 passed (13.4s)`、`dm.test.ts` は `3 passed (47.7s)`。すべて `E2E_BASE_URL=http://127.0.0.1:3001` の production サーバーで通過
+- AC: codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う
+  Test case: spawned Codex agent `Locke` にレビュー依頼
+  Result: 初回レビューで `DirectMessageContainer` の認証前 side effect を指摘され、`canAccessConversation` と `useWs(null)` ガードを追加。再レビューでは `No findings` を確認
+- AC: Typecheck passes
+  Test case: `cd application && mise exec -- pnpm typecheck`
+  Result: passed
+
+Quality Checks:
+- `cd application && mise trust` -> passed (`No untrusted config files found.`)
+- `cd application && mise install` -> passed (`mise all tools are installed`)
+- `cd application && mise exec -- pnpm typecheck` -> passed
+- `cd application && mise exec -- pnpm build` -> passed (Rspack asset size warning のみ)
+- `cd application/client && npx -y react-doctor@latest . --verbose --diff` -> passed (`100 / 100 Great`)
+- `curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:3001/api/v1/initialize` -> passed (`200`)
+- `cd application && CI=1 E2E_BASE_URL=http://127.0.0.1:3001 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/home.test.ts --grep 'タイムラインが表示される|タイトルが「タイムライン - CaX」'` -> passed (`2 passed (13.4s)`)
+- `cd application && CI=1 E2E_BASE_URL=http://127.0.0.1:3001 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/dm.test.ts --grep '未サインインの場合、DMのリンクが表示されない|DM一覧が表示される|送信ボタンをクリックすると、DM詳細画面に遷移すること'` -> passed (`3 passed (47.7s)`)
+- `agent-browser open http://127.0.0.1:3001/ && agent-browser wait --load networkidle && agent-browser screenshot --full` -> screenshot captured (`/Users/yuito_watanabe/.agent-browser/tmp/screenshots/screenshot-2026-03-21T06-19-34-916Z-kv6cdj.png`)
+- `agent-browser open http://127.0.0.1:3001/dm && agent-browser wait --load networkidle && agent-browser screenshot --full && agent-browser get title` -> screenshot captured and final title verified (`/Users/yuito_watanabe/.agent-browser/tmp/screenshots/screenshot-2026-03-21T06-19-36-533Z-fkwt60.png`, title `ダイレクトメッセージ - CaX`)
+- Review by spawned Codex agent `Locke` -> one medium finding fixed, follow-up review returned `No findings`
+
+Commit:
+- Hash: `4dd792a`
+- Message: `feat: [US-015] - AppContainer の認証API ブロッキング解除 + Suspense fallback 修正`

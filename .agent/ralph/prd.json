@@ -1,7 +1,7 @@
 {
   "project": "CaX パフォーマンス改善 Phase 2",
   "branchName": "ralph/perf-phase2",
-  "description": "Phase 1（ビルド最適化・アセット圧縮・遅延削除・コード分割・再レンダリング抑制等）完了後の、DB/API/フロントエンド最適化。Lighthouse 操作スコア（TBT/INP）とAPI応答速度の改善が主目標。",
+  "description": "Phase 1（ビルド最適化・アセット圧縮・遅延削除・コード分割・再レンダリング抑制等）完了後の、DB/API/フロントエンド最適化。Lighthouse 操作スコア（TBT/INP）とAPI応答速度の改善が主目標。Phase 2b として LCP改善・TBT改善・INP改善・バンドル最適化を追加。投稿フローバグは再調査中。",
   "userStories": [
     {
       "id": "US-001",
@@ -218,6 +218,282 @@
       "priority": 13,
       "passes": true,
       "notes": "12ファイルで使用。React 19 では JSX 内で直接 <title>, <meta>, <link> を返すことでドキュメントヘッドを管理できる。HelmetProvider も不要になる。リファクタ範囲は広いが各ファイルの変更は小さい。"
+    },
+    {
+      "id": "US-015",
+      "title": "AppContainer の認証API ブロッキング解除 + Suspense fallback 修正",
+      "description": "開発者として、AppContainer の /api/v1/me 取得中に画面が完全に空白になる問題を解消し、全ページの LCP を改善したい。isLoadingActiveUser=true の間も Navigation + ルーティングを描画し、Suspense fallback={null} も修正する。",
+      "acceptanceCriteria": [
+        "isLoadingActiveUser=true の間も Navigation コンポーネントとページルーティングが描画されている",
+        "認証API完了前でも各ページのコンテンツ構造（ヘッダー、ナビゲーション等）が表示される",
+        "各ルートの Suspense fallback が null からローディング表示またはスケルトンに変更されている",
+        "認証API完了後に activeUser に応じた UI が正しく切り替わる",
+        "未認証状態でアクセスした場合の挙動が正常である",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "AppContainer.tsx (61-92行) で isLoadingActiveUser=true の間 <Helmet> のみ返却 → 全ページ空白。加えて主要ルートが Suspense fallback={null} のため、ブロッキング解除だけではチャンク取得中も空白が続く。両方を同時に修正する必要がある。期待効果: 全ページ LCP +10-20点。"
+    },
+    {
+      "id": "US-016",
+      "title": "KaTeX CSS/フォントの Crok チャンク内遅延ロード化",
+      "description": "開発者として、index.css の @import 'katex/dist/katex.min.css' を削除し、KaTeX CSS/フォントを Crok チャットページ内でのみ遅延ロードすることで、全ページの CSS 読み込みを高速化したい。",
+      "acceptanceCriteria": [
+        "index.css から @import 'katex/dist/katex.min.css' が削除されている",
+        "rspack.config の CopyRspackPlugin から KaTeX フォントコピー設定が削除されている",
+        "ChatMessageMarkdown 内で KaTeX CSS が動的にロードされる仕組みになっている",
+        "Crok チャットページで数式（KaTeX）が正しくレンダリングされる",
+        "KaTeX を使用しないページ（ホーム、DM等）で KaTeX CSS/フォントがロードされない",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "index.css 2行目で全ページに KaTeX CSS をロード。KaTeX は Crok チャットでのみ使用。CSS 削除 + ChatMessageMarkdown 内での動的 import で 30-50ms + フォントファイル分を節約。"
+    },
+    {
+      "id": "US-017",
+      "title": "LCP 画像の fetchpriority / loading 属性設定",
+      "description": "開発者として、LCP 候補となる画像に fetchpriority='high' と loading='eager' を設定し、2枚目以降は loading='lazy' にすることで LCP を改善したい。",
+      "acceptanceCriteria": [
+        "CoveredImage で LCP 候補（最初の画像）に fetchpriority='high' が設定されている",
+        "最初の画像に loading='eager'、2枚目以降に loading='lazy' が設定されている",
+        "写真つき投稿詳細ページで画像が正しく表示される",
+        "タイムラインで画像の遅延読み込みが正しく動作する",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "CoveredImage, ProfileImage には既に width/height がある（追加不要）。fetchpriority='high' + loading 属性の設定が本施策の核。LCP 候補かどうかを props で制御する仕組みが必要。期待効果: 写真つき投稿詳細 LCP +5-10点。"
+    },
+    {
+      "id": "US-018",
+      "title": "動画/音声の preload 明示設定",
+      "description": "開発者として、動画・音声要素に明示的に preload='none' を設定し、不要なメディアデータの自動ダウンロードを防いで LCP を改善したい。",
+      "acceptanceCriteria": [
+        "PausableMovie の video タグに preload='none' が明示的に設定されている",
+        "SoundPlayer の audio 関連要素に preload='none' が明示的に設定されている",
+        "動画の再生ボタン押下後に正常に再生開始される",
+        "音声の再生ボタン押下後に正常に再生開始される",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "PausableMovie.tsx, SoundPlayer.tsx には現在 preload 属性が未設定（ブラウザデフォルトに依存）。明示的に preload='none' を追加する。autoplay 動画がある場合は preload='none' だと再生開始が遅れる可能性があるので要確認。期待効果: 動画/音声ページ LCP +2-5点。"
+    },
+    {
+      "id": "US-019",
+      "title": "AuthModalPage の redux-form → useState 化",
+      "description": "開発者として、AuthModalPage の redux-form を useState + onBlur バリデーションに置き換え、毎キー入力での同期バリデーション・store更新・再レンダリングのチェーンを排除して TBT/INP を改善したい。",
+      "acceptanceCriteria": [
+        "AuthModalPage から reduxForm HOC が除去されている",
+        "フォーム状態が useState で管理されている",
+        "バリデーションが onBlur 時のみ実行される（毎キー入力での実行を排除）",
+        "ユーザー登録フローが正常に動作する（入力→バリデーション→送信）",
+        "サインインフローが正常に動作する",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "対象: AuthModalPage.tsx, validation.ts。unicode 正規表現 /^(?:[^\\P{Letter}&&\\P{Number}]*){16,}$/v が毎キー入力で実行されメインスレッドをブロック。onBlur 化で scoring tool の pressSequentially({ delay: 10 }) による高速入力時のブロックを回避。期待効果: TBT +15-20点、INP +10-14点。"
+    },
+    {
+      "id": "US-020",
+      "title": "SearchPage・NewDirectMessageModalPage の redux-form → useState 化 + redux-form 完全削除",
+      "description": "開発者として、残りの redux-form 使用箇所（SearchPage、NewDirectMessageModalPage）を useState に移行し、redux-form パッケージと form reducer を完全に削除したい。",
+      "acceptanceCriteria": [
+        "SearchPage から reduxForm HOC が除去され、useState で管理されている",
+        "NewDirectMessageModalPage から reduxForm HOC が除去され、useState で管理されている",
+        "redux-form パッケージが package.json から削除されている",
+        "store/index.ts から form reducer が除去されている",
+        "検索ページでの検索が正常に動作する",
+        "DM新規作成モーダルが正常に動作する",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "US-019 で AuthModalPage を移行した後の残り。SearchPage と NewDirectMessageModalPage は比較的シンプルなフォーム。完了後に redux-form パッケージごと削除し、バンドルサイズも削減。"
+    },
+    {
+      "id": "US-021",
+      "title": "SSE state 更新の requestAnimationFrame バッチ化",
+      "description": "開発者として、Crok チャットの SSE 受信で毎チャンク setState している処理を requestAnimationFrame でバッチ化し、フレームごとの更新に抑えて TBT を改善したい。",
+      "acceptanceCriteria": [
+        "use_sse.ts の onmessage ハンドラで contentRef に蓄積し、rAF でフレームごとに setState する実装になっている",
+        "SSE の各チャンク受信で直接 setState が呼ばれていない",
+        "Crok チャットでストリーミングレスポンスが正しく表示される",
+        "ストリーミング中に UI がフリーズしない",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "対象: client/src/hooks/use_sse.ts。現在は SSE の各チャンク受信ごとに setContent() → react-markdown のフルパースが発火。rAF バッチ化でフレーム単位に抑える。期待効果: Crok TBT +10-15点。"
+    },
+    {
+      "id": "US-022",
+      "title": "Crok ストリーミング中のプレーンテキスト描画",
+      "description": "開発者として、Crok チャットのストリーミング受信中は Markdown パースをスキップしてプレーンテキストで描画し、ストリーミング完了後にフル Markdown レンダリングに切り替えることで TBT を改善したい。",
+      "acceptanceCriteria": [
+        "ストリーミング中はプレーンテキスト（または簡易レンダリング）で表示される",
+        "ストリーミング完了後に react-markdown によるフル Markdown レンダリングに切り替わる",
+        "切り替え時にちらつきや大きなレイアウトシフトがない",
+        "最終的な表示で数式（KaTeX）・コードブロック・GFM が正しくレンダリングされる",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "【Codex レビュー反映】ChatMessageMarkdown を useMemo しても content が毎回変わるので毎回再計算になり効果なし。CodeBlock の言語登録もモジュール初期化で1回のみでガード不要。有効な施策は「ストリーミング中はプレーンテキスト、完了後にフル Markdown」の切り替え。期待効果: Crok TBT +3-5点。"
+    },
+    {
+      "id": "US-023",
+      "title": "DM スクロール処理の MutationObserver → scrollIntoView 置換",
+      "description": "開発者として、DirectMessagePage の MutationObserver + window.scrollTo による同期スクロールを scrollIntoView に置き換え、DM 送信時の INP を改善したい。",
+      "acceptanceCriteria": [
+        "DirectMessagePage から MutationObserver による document.body 監視が削除されている",
+        "メッセージリスト末尾の ref + scrollIntoView でスクロールが実装されている",
+        "DM でメッセージ送信後に自動スクロールが正しく動作する",
+        "新着メッセージ受信時に自動スクロールが正しく動作する",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "対象: DirectMessagePage.tsx (75-87行)。document.body 全体を MutationObserver で subtree: true 監視 → 全DOM変更で window.scrollTo → 同期レイアウト強制のループ。scrollIntoView に置換で即効。期待効果: DM INP +15-20点。"
+    },
+    {
+      "id": "US-024",
+      "title": "DM 送信の楽観的更新（重複排除設計込み）",
+      "description": "開発者として、DM 送信後に全メッセージを再取得する処理を楽観的更新に置き換え、送信時の再レンダリングコストを削減して INP を改善したい。",
+      "acceptanceCriteria": [
+        "DM 送信後にローカル state へ即座にメッセージが追加される（楽観的更新）",
+        "全メッセージの再取得（loadConversation()）が送信直後に実行されない",
+        "サーバーから返却された実際の ID で楽観的メッセージが置換される（重複排除）",
+        "WebSocket 経由で同じメッセージが到着した場合に重複しない",
+        "送信エラー時に楽観的メッセージが除去またはエラー表示される",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": "【Codex レビュー反映】DirectMessageContainer.tsx (64-77行)。送信後に loadConversation() で全メッセージ再取得。さらに DirectMessage.ts:112 の afterSave でも WebSocket イベント送出、direct_message.ts:225 で作成結果を返却するため、楽観的更新時はサーバー ID での置換・WebSocket 到着時の重複排除が必須。期待効果: DM INP +5-10点。"
+    },
+    {
+      "id": "US-025",
+      "title": "DM メッセージコンポーネントの React.memo 化",
+      "description": "開発者として、DirectMessagePage のメッセージアイテムを React.memo でラップし、メッセージ追加時の不要な再レンダリングを抑制して INP を改善したい。",
+      "acceptanceCriteria": [
+        "メッセージアイテムが React.memo でラップされている",
+        "比較関数が id だけでなく isRead 等の可変フィールドも含めている（既読表示の更新が止まらないこと）",
+        "メッセージ追加時に既存メッセージの不要な再レンダリングが抑制されている",
+        "既読状態の変更が正しく反映される",
+        "DM ページでメッセージが正しく表示される",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": "【Codex レビュー反映】id のみの比較関数だと message.isRead の既読表示更新が止まるバグになる。比較関数には id, isRead, body 等の表示に影響するフィールドを含めること。期待効果: DM INP +2-3点。"
+    },
+    {
+      "id": "US-026",
+      "title": "DM WebSocket 差分更新",
+      "description": "開発者として、DM の WebSocket 受信時に全会話リストを再取得する処理を差分更新に置き換え、INP を改善したい。",
+      "acceptanceCriteria": [
+        "WebSocket 受信時に全会話リストの再取得ではなく、該当会話のみの差分更新が行われる",
+        "DM 一覧ページで会話リストが正しく更新される",
+        "新着メッセージのリアルタイム通知が正しく動作する",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": "対象: DirectMessageListPage.tsx (118-120行)。WebSocket 受信時に全会話リスト再取得。差分更新にすればレンダリングコスト削減。期待効果: INP +1-2点。"
+    },
+    {
+      "id": "US-027",
+      "title": "FontAwesome SVG sprite の最適化",
+      "description": "開発者として、FontAwesome の SVG sprite ファイル（solid.svg 639KB + brands.svg 458KB）を使用アイコンのみに絞り込み SVGO で圧縮し、静的リソースのサイズを削減したい。",
+      "acceptanceCriteria": [
+        "SVG sprite ファイルが SVGO で圧縮されている、または使用アイコンのみに絞り込まれている",
+        "solid.svg と brands.svg の合計サイズが元の 1.2MB から 50% 以上削減されている",
+        "全ページでアイコンが正しく表示される",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 26,
+      "passes": true,
+      "notes": "対象: application/public/sprites/font-awesome/。全アイコンを含む SVG sprite が 1.2MB。使用アイコンを特定して抽出するか、SVGO で圧縮。期待効果: 250-600KB 削減。"
+    },
+    {
+      "id": "US-028",
+      "title": "画像の追加圧縮",
+      "description": "開発者として、200KB 超の大型画像を再圧縮（品質70以下）し、転送量を削減したい。",
+      "acceptanceCriteria": [
+        "200KB 超の画像が品質70以下で再圧縮されている（WebP または AVIF）",
+        "画像の見た目に著しい劣化がない",
+        "ホームページ・投稿詳細ページで画像が正しく表示される",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 27,
+      "passes": true,
+      "notes": "対象: application/public/images/。最大 361KB の WebP 画像、200KB 超が複数。期待効果: 500KB-1MB 削減。"
+    },
+    {
+      "id": "US-029",
+      "title": "スケルトン UI / 即時レンダリング",
+      "description": "開発者として、API レスポンス待機中にスケルトン UI またはプレースホルダーを表示し、LCP を改善したい。",
+      "acceptanceCriteria": [
+        "TimelineContainer でデータ取得中にスケルトン UI が表示される",
+        "PostContainer でデータ取得中にスケルトン UI が表示される",
+        "SearchContainer でデータ取得中にスケルトン UI が表示される",
+        "データ取得完了後にスケルトンが実コンテンツに置換される",
+        "Verify in browser using agent-browser skill",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": "US-015（AppContainer ブロッキング解除 + Suspense fallback 修正）完了後に実施。各ページの API データ取得完了まで実質的なコンテンツが表示されない問題の解消。期待効果: 投稿詳細系 LCP +5-15点。"
+    },
+    {
+      "id": "US-030",
+      "title": "フォント/CSS preload ヒント追加",
+      "description": "開発者として、critical なフォント・CSS に preload ヒントを追加し、FCP を改善したい。",
+      "acceptanceCriteria": [
+        "index.html に critical なフォントの <link rel='preload'> が追加されている",
+        "主要な CSS ファイルの preload が設定されている",
+        "ページの表示が高速化されている（開発者ツールの Network で確認）",
+        "該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）",
+        "codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う",
+        "Typecheck passes"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": "【Codex レビュー反映】rspack のハッシュ付き出力ファイル名があるため、vendor JS の preload はビルド時にファイル名を解決する仕組みが必要（HtmlRspackPlugin の inject で自動挿入されている可能性あり）。フォントは固定パスなので preload 可能。期待効果: FCP 50-100ms 改善。"
     }
   ]
 }

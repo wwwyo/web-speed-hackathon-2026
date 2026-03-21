@@ -6,11 +6,19 @@ interface Props {
   activeUser: Models.User | null;
   children: ReactNode;
   authModalId: string;
+  isLoadingActiveUser: boolean;
   newPostModalId: string;
   onLogout: () => void;
 }
 
-export const AppPage = ({ activeUser, children, authModalId, newPostModalId, onLogout }: Props) => {
+export const AppPage = ({
+  activeUser,
+  children,
+  authModalId,
+  isLoadingActiveUser,
+  newPostModalId,
+  onLogout,
+}: Props) => {
   return (
     <div className="relative z-0 flex justify-center font-sans">
       <div className="bg-cax-surface text-cax-text flex min-h-screen max-w-full">
@@ -18,6 +26,7 @@ export const AppPage = ({ activeUser, children, authModalId, newPostModalId, onL
           <Navigation
             activeUser={activeUser}
             authModalId={authModalId}
+            isLoadingActiveUser={isLoadingActiveUser}
             newPostModalId={newPostModalId}
             onLogout={onLogout}
           />

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { PageTitle } from "@web-speed-hackathon-2026/client/src/components/application/PageTitle";
+import { RouteLoadingPage } from "@web-speed-hackathon-2026/client/src/components/application/RouteLoadingPage";
 import { CrokGate } from "@web-speed-hackathon-2026/client/src/components/crok/CrokGate";
 import { CrokPage } from "@web-speed-hackathon-2026/client/src/components/crok/CrokPage";
 import { useSSE } from "@web-speed-hackathon-2026/client/src/hooks/use_sse";
@@ -8,9 +9,10 @@ import { useSSE } from "@web-speed-hackathon-2026/client/src/hooks/use_sse";
 type Props = {
   activeUser: Models.User | null;
   authModalId: string;
+  isLoadingActiveUser: boolean;
 };
 
-export const CrokContainer = ({ activeUser, authModalId }: Props) => {
+export const CrokContainer = ({ activeUser, authModalId, isLoadingActiveUser }: Props) => {
   const [messages, setMessages] = useState<Models.ChatMessage[]>([]);
 
   const sseOptions = useMemo(
@@ -69,6 +71,16 @@ export const CrokContainer = ({ activeUser, authModalId }: Props) => {
     },
     [isStreaming, start],
   );
+
+  if (isLoadingActiveUser) {
+    return (
+      <RouteLoadingPage
+        title="Crok - CaX"
+        headline="Crok"
+        description="Crok を表示しています。"
+      />
+    );
+  }
 
   if (!activeUser) {
     return (

@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useId, useState } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router";
 
 import { AppPage } from "@web-speed-hackathon-2026/client/src/components/application/AppPage";
-import { PageTitle } from "@web-speed-hackathon-2026/client/src/components/application/PageTitle";
+import { RouteLoadingPage } from "@web-speed-hackathon-2026/client/src/components/application/RouteLoadingPage";
 import { AuthModalContainer } from "@web-speed-hackathon-2026/client/src/containers/AuthModalContainer";
 import { NewPostModalContainer } from "@web-speed-hackathon-2026/client/src/containers/NewPostModalContainer";
 import { SearchContainer } from "@web-speed-hackathon-2026/client/src/containers/SearchContainer";
@@ -51,6 +51,62 @@ const UserProfileContainer = lazy(() =>
   })),
 );
 
+const getRouteLoadingState = (pathname: string) => {
+  if (pathname === "/") {
+    return {
+      title: "タイムライン - CaX",
+      headline: "タイムライン",
+      description: "タイムラインを表示しています。",
+    };
+  }
+
+  if (pathname === "/dm" || pathname.startsWith("/dm/")) {
+    return {
+      title: "ダイレクトメッセージ - CaX",
+      headline: "ダイレクトメッセージ",
+      description: "ダイレクトメッセージを表示しています。",
+    };
+  }
+
+  if (pathname.startsWith("/users/")) {
+    return {
+      title: "読込中 - CaX",
+      headline: "ユーザーページ",
+      description: "プロフィールを表示しています。",
+    };
+  }
+
+  if (pathname.startsWith("/posts/")) {
+    return {
+      title: "読込中 - CaX",
+      headline: "投稿詳細",
+      description: "投稿の内容を表示しています。",
+    };
+  }
+
+  if (pathname === "/terms") {
+    return {
+      title: "利用規約 - CaX",
+      headline: "利用規約",
+      description: "利用規約を表示しています。",
+    };
+  }
+
+  if (pathname === "/crok") {
+    return {
+      title: "Crok - CaX",
+      headline: "Crok",
+      description: "Crok を表示しています。",
+    };
+  }
+
+  return {
+    title: "読込中 - CaX",
+    headline: "読込中",
+    description: "ページを表示しています。",
+  };
+};
+
 export const AppContainer = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -80,23 +136,22 @@ export const AppContainer = () => {
 
   const authModalId = useId();
   const newPostModalId = useId();
-
-  if (isLoadingActiveUser) {
-    return <PageTitle>読込中 - CaX</PageTitle>;
-  }
+  const routeLoadingState = getRouteLoadingState(pathname);
+  const routeFallback = <RouteLoadingPage {...routeLoadingState} />;
 
   return (
     <>
       <AppPage
         activeUser={activeUser}
         authModalId={authModalId}
+        isLoadingActiveUser={isLoadingActiveUser}
         newPostModalId={newPostModalId}
         onLogout={handleLogout}
       >
         <Routes>
           <Route
             element={
-              <Suspense fallback={null}>
+              <Suspense fallback={routeFallback}>
                 <TimelineContainer />
               </Suspense>
             }
@@ -104,16 +159,24 @@ export const AppContainer = () => {
           />
           <Route
             element={
-              <Suspense fallback={null}>
-                <DirectMessageListContainer activeUser={activeUser} authModalId={authModalId} />
+              <Suspense fallback={routeFallback}>
+                <DirectMessageListContainer
+                  activeUser={activeUser}
+                  authModalId={authModalId}
+                  isLoadingActiveUser={isLoadingActiveUser}
+                />
               </Suspense>
             }
             path="/dm"
           />
           <Route
             element={
-              <Suspense fallback={null}>
-                <DirectMessageContainer activeUser={activeUser} authModalId={authModalId} />
+              <Suspense fallback={routeFallback}>
+                <DirectMessageContainer
+                  activeUser={activeUser}
+                  authModalId={authModalId}
+                  isLoadingActiveUser={isLoadingActiveUser}
+                />
               </Suspense>
             }
             path="/dm/:conversationId"
@@ -121,7 +184,7 @@ export const AppContainer = () => {
           <Route element={<SearchContainer />} path="/search" />
           <Route
             element={
-              <Suspense fallback={null}>
+              <Suspense fallback={routeFallback}>
                 <UserProfileContainer />
               </Suspense>
             }
@@ -129,7 +192,7 @@ export const AppContainer = () => {
           />
           <Route
             element={
-              <Suspense fallback={null}>
+              <Suspense fallback={routeFallback}>
                 <PostContainer />
               </Suspense>
             }
@@ -137,7 +200,7 @@ export const AppContainer = () => {
           />
           <Route
             element={
-              <Suspense fallback={null}>
+              <Suspense fallback={routeFallback}>
                 <TermContainer />
               </Suspense>
             }
@@ -145,15 +208,19 @@ export const AppContainer = () => {
           />
           <Route
             element={
-              <Suspense fallback={null}>
-                <CrokContainer activeUser={activeUser} authModalId={authModalId} />
+              <Suspense fallback={routeFallback}>
+                <CrokContainer
+                  activeUser={activeUser}
+                  authModalId={authModalId}
+                  isLoadingActiveUser={isLoadingActiveUser}
+                />
               </Suspense>
             }
             path="/crok"
           />
           <Route
             element={
-              <Suspense fallback={null}>
+              <Suspense fallback={routeFallback}>
                 <NotFoundContainer />
               </Suspense>
             }

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { dynamicMediaMask, login, waitForVisibleMedia } from "./utils";
+import { dynamicMediaMask, login, waitForPageToLoad, waitForVisibleMedia } from "./utils";
 
 test.describe("Crok - 未サインイン", () => {
   test.beforeEach(async ({ page }) => {
@@ -36,6 +36,7 @@ test.describe("Crok AIチャット", () => {
   test("サジェスト候補が表示される", async ({ page }) => {
     // VRT: Crokページ
     await waitForVisibleMedia(page);
+    await waitForPageToLoad(page);
     await expect(page).toHaveScreenshot("crok-Crok.png", {
       mask: dynamicMediaMask(page),
     });
@@ -55,6 +56,7 @@ test.describe("Crok AIチャット", () => {
 
     // VRT: サジェスト表示後
     await waitForVisibleMedia(page);
+    await waitForPageToLoad(page);
     await expect(page).toHaveScreenshot("crok-サジェスト表示後.png", {
       mask: dynamicMediaMask(page),
     });
@@ -121,6 +123,7 @@ test.describe("Crok AIチャット", () => {
 
     // VRT: AI応答完了後
     await waitForVisibleMedia(page);
+    await waitForPageToLoad(page);
     await expect(page).toHaveScreenshot("crok-AI応答完了後.png", {
       mask: dynamicMediaMask(page),
     });

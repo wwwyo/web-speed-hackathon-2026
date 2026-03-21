@@ -42,3 +42,42 @@ Quality Checks:
 Commit:
 - Hash: pending post-commit
 - Message: `feat: [US-009] - standardized-audio-context ポリフィル削除`
+
+## 2026-03-21 - US-010 react-syntax-highlighter を軽量代替に置換
+
+Implementation:
+- `application/client/src/components/crok/CodeBlock.tsx` を `react-syntax-highlighter` のフル import から `react-syntax-highlighter/dist/esm/prism-light` ベースへ切り替え、Crok 固定レスポンスで使う主要言語のみを明示登録する実装に変更
+- 未対応言語は `<pre><code>` にフォールバックするようにし、未知の code fence が来ても表示だけは維持されるように変更
+- `AGENTS.md` に、`prism-light` + 明示言語登録で chunk を大幅削減できる知見を追記
+- 別 Codex エージェント (`Kant`) にレビューを依頼し、`no findings` を確認
+
+Acceptance Criteria Verification:
+- AC: react-syntax-highlighter が軽量代替に置換されている、または使用言語のみのインポートに変更されている
+  Test case: `sed -n '1,220p' application/client/src/components/crok/CodeBlock.tsx`
+  Result: `react-syntax-highlighter/dist/esm/prism-light` と 13 個の Prism 言語定義のみを import し、`registerLanguage` / `alias` で必要言語だけを有効化していることを確認
+- AC: Crok AI チャットのコードブロックが正しくシンタックスハイライトされる
+  Test case: `curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:3011/api/v1/initialize`; `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/crok-chat.test.ts --grep '質問を送信するとAIの応答が表示される'`
+  Result: passed。固定の Crok 応答に含まれる複数の fenced code block を含む画面で、Playwright の表示確認とスクリーンショット比較が通過
+- AC: バンドルサイズが削減されている（ビルド出力で確認）
+  Test case: `mise exec -- pnpm build`; `tmpdir=$(mktemp -d) && git archive HEAD application | tar -x -C "$tmpdir" && cd "$tmpdir/application" && mise x node@24.14.0 pnpm@10.32.1 -- pnpm install >/dev/null && mise x node@24.14.0 pnpm@10.32.1 -- pnpm build`
+  Result: current build のコードブロック関連 chunk が `482.412 KiB` (`scripts/chunk-3960f91b52bcf149.js`) になり、HEAD ベース比較 build の `1.262 MiB` (`scripts/chunk-fde64ba38aeff93a.js`) から縮小したことを確認
+- AC: 該当箇所のE2Eテストが通っていること
+  Test case: `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/crok-chat.test.ts --grep '質問を送信するとAIの応答が表示される'`
+  Result: `1 passed (14.5s)`
+- AC: Typecheck passes
+  Test case: `mise exec -- pnpm typecheck`
+  Result: passed
+
+Quality Checks:
+- `mise trust` -> passed (`No untrusted config files found.`)
+- `mise install` -> passed (`mise all tools are installed`)
+- `mise exec -- pnpm typecheck` -> passed
+- `mise exec -- pnpm build` -> passed (asset size warning のみ)
+- `curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:3011/api/v1/initialize` -> passed (`200`)
+- `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/crok-chat.test.ts --grep '質問を送信するとAIの応答が表示される'` -> passed (1 test)
+- `agent-browser open http://127.0.0.1:3011/crok && agent-browser wait 2000 && agent-browser screenshot --full` -> screenshot captured on production server for browser verification (`/Users/yuito_watanabe/.agent-browser/tmp/screenshots/screenshot-2026-03-21T04-38-16-349Z-n9dlck.png`)
+- Review by spawned Codex agent `Kant` -> no findings
+
+Commit:
+- Hash: pending post-commit
+- Message: `feat: [US-010] - react-syntax-highlighter を軽量代替に置換`

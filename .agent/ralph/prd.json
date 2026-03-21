@@ -170,7 +170,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "client/src/components/crok/CodeBlock.tsx で使用。react-syntax-highlighter は全言語定義を含むため非常に大きい。prism-react-renderer や shiki 等の軽量代替、または dynamic import による遅延読み込みを検討。"
     },
     {

@@ -99,6 +99,7 @@ pnpm ワークスペースによるモノレポ（`application/` 配下）。
 - `classnames` は 9 箇所程度の利用ならローカル utility へ置換しやすい。文字列・配列・object syntax（`{ className: boolean }`）だけ互換を持たせれば、挙動を維持したまま依存を 1 つ削減できる
 - React 19 の SPA では `react-helmet` を外してネイティブ `<title>` へ寄せられるが、このリポジトリでは async fetch 後に確定する title が空になるケースがあった。`PageTitle` のような薄い wrapper で `<title>` を返しつつ `document.title` も同期すると、静的 route も動的 route も安定して置換できる
 - `AppContainer` で `/api/v1/me` 完了まで空の JSX を返すと、Navigation も lazy route も描画されず全画面が白くなる。認証待ち中も `AppPage` 自体は描画したままにして、auth 依存ページは `isLoadingActiveUser` を見て gate ではなく route fallback を返すと、LCP 改善と未認証 UI の誤表示回避を両立しやすい
+- `PausableMovie` の muted autoplay 動画と `SoundPlayer` の手動再生音声は、`preload="none"` を明示しても production build + start 環境の再生フローを維持できた。メディアの先読みを抑えつつ、既存の再生 UI を崩さず LCP 改善を狙いやすい
 
 ## テストアカウント
 

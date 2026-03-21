@@ -286,7 +286,7 @@
         "Typecheck passes"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "PausableMovie.tsx, SoundPlayer.tsx には現在 preload 属性が未設定（ブラウザデフォルトに依存）。明示的に preload='none' を追加する。autoplay 動画がある場合は preload='none' だと再生開始が遅れる可能性があるので要確認。期待効果: 動画/音声ページ LCP +2-5点。"
     },
     {

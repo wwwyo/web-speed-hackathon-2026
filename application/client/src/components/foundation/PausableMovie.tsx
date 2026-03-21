@@ -53,6 +53,7 @@ export const PausableMovie = ({ src }: Props) => {
           className="w-full"
           loop
           muted
+          preload="none"
           playsInline
           src={src}
           width={100}

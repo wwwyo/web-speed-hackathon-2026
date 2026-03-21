@@ -331,3 +331,51 @@ Quality Checks:
 Commit:
 - Hash: pending post-commit
 - Message: `feat: [US-016] - KaTeX CSS/フォントの Crok チャンク内遅延ロード化`
+
+## 2026-03-21 - US-018 動画/音声の preload 明示設定
+
+Implementation:
+- `application/client/src/components/foundation/PausableMovie.tsx` の `<video>` に `preload="none"` を追加し、既存の muted autoplay / クリック再生UI は維持したまま不要な先読みを抑制
+- `application/client/src/components/foundation/SoundPlayer.tsx` の `<audio>` に `preload="none"` を追加し、波形表示は既存ピークデータ描画のまま、音声データの自動ダウンロードだけを抑制
+- `application/e2e/src/post-detail.test.ts` に video/audio の `preload="none"` 属性確認を追加し、投稿詳細の動画・音声再生経路で属性反映と回帰を同時に検証
+- `AGENTS.md` に、muted autoplay 動画と手動再生音声は `preload="none"` でも production build + start で既存再生フローを維持できた知見を追記
+- 別 Codex エージェント (`Arendt`) にレビューを依頼し、no findings を確認
+
+Acceptance Criteria Verification:
+- AC: PausableMovie の video タグに preload='none' が明示的に設定されている
+  Test case: `rg -n 'preload="none"' application/client/src/components/foundation/PausableMovie.tsx -S`; `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/post-detail.test.ts --grep '動画が自動再生され、クリックで一時停止・再生を切り替えられる'`
+  Result: source 上で `<video preload="none">` を確認し、投稿詳細 E2E でも `video` 要素の `preload` 属性検証を含めて passed
+- AC: SoundPlayer の audio 関連要素に preload='none' が明示的に設定されている
+  Test case: `rg -n 'preload="none"' application/client/src/components/foundation/SoundPlayer.tsx -S`; `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/post-detail.test.ts --grep '音声の波形が表示され、再生ボタンで切り替えられる'`
+  Result: source 上で `<audio preload="none">` を確認し、投稿詳細 E2E でも `audio` 要素の `preload` 属性検証を含めて passed
+- AC: 動画の再生ボタン押下後に正常に再生開始される
+  Test case: `curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:3011/api/v1/initialize`; `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/home.test.ts --grep '動画が自動再生される'`; `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/post-detail.test.ts --grep '動画が自動再生され、クリックで一時停止・再生を切り替えられる'`
+  Result: production build + start サーバー上でホームの動画表示が `1 passed`、投稿詳細の動画クリック再生/一時停止切替が `1 passed`。`preload="none"` 追加後も既存の再生UIが維持されていることを確認
+- AC: 音声の再生ボタン押下後に正常に再生開始される
+  Test case: `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/home.test.ts --grep '音声の波形が表示される'`; `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/post-detail.test.ts --grep '音声の波形が表示され、再生ボタンで切り替えられる|音声の再生位置が波形で表示される'`
+  Result: production build + start サーバー上でホームの波形表示が `1 passed`、投稿詳細の再生ボタン切替と再生位置オーバーレイ更新が `2 passed`。`preload="none"` 追加後も音声再生フローが維持されていることを確認
+- AC: 該当箇所のE2Eテストが通っていること。E2Eは常に build & start したサーバーに対して実行する（pnpm e2e 参考）
+  Test case: `curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:3011/api/v1/initialize`; `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/home.test.ts --grep '動画が自動再生される|音声の波形が表示される'`; `CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/post-detail.test.ts --grep '動画が自動再生され、クリックで一時停止・再生を切り替えられる|音声の波形が表示され、再生ボタンで切り替えられる|音声の再生位置が波形で表示される'`
+  Result: `home.test.ts` は `2 passed (2.6s)`、`post-detail.test.ts` は `3 passed (48.8s)`。いずれも `E2E_BASE_URL=http://127.0.0.1:3011` の production サーバー上で通過
+- AC: codex skill で review を受けること。自己レビューではなく必ず新しい codex を起動して移譲し、feedback は適宜修正判断を行う
+  Test case: spawned Codex agent `Arendt` にレビュー依頼
+  Result: no findings。補足として、E2E は主に DOM 属性と既存再生経路の確認であり、先読み抑止量そのものの定量測定までは未実施という残留リスクのみ指摘
+- AC: Typecheck passes
+  Test case: `cd application && mise exec -- pnpm typecheck`
+  Result: passed
+
+Quality Checks:
+- `cd application && mise trust` -> passed (`No untrusted config files found.`)
+- `cd application && mise install` -> passed (`mise all tools are installed`)
+- `cd application && mise exec -- pnpm build` -> passed (Rspack asset size warning のみ)
+- `cd application && mise exec -- pnpm typecheck` -> passed
+- `cd application && rg -n 'preload="none"' client/src/components/foundation/PausableMovie.tsx client/src/components/foundation/SoundPlayer.tsx -S` -> passed (video/audio の両方で match)
+- `curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:3011/api/v1/initialize` -> passed (`200`)
+- `cd application && CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/home.test.ts --grep '動画が自動再生される|音声の波形が表示される'` -> passed (`2 passed (2.6s)`)
+- `cd application && CI=1 E2E_BASE_URL=http://127.0.0.1:3011 mise exec -- pnpm --filter @web-speed-hackathon-2026/e2e test src/post-detail.test.ts --grep '動画が自動再生され、クリックで一時停止・再生を切り替えられる|音声の波形が表示され、再生ボタンで切り替えられる|音声の再生位置が波形で表示される'` -> passed (`3 passed (48.8s)`)
+- `agent-browser open http://127.0.0.1:3011/ && agent-browser wait 3000 && agent-browser screenshot --full && agent-browser get title` -> passed (production サーバーのタイムライン画面を確認。スクリーンショット: `/Users/yuito_watanabe/.agent-browser/tmp/screenshots/screenshot-2026-03-21T06-42-16-712Z-6wgswl.png`, title `タイムライン - CaX`)
+- Review by spawned Codex agent `Arendt` -> no findings
+
+Commit:
+- Hash: pending post-commit
+- Message: `feat: [US-018] - 動画/音声の preload 明示設定`

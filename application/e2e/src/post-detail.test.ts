@@ -100,6 +100,7 @@ test.describe("投稿詳細 - 動画", () => {
 
     const videoPlayer = page.locator('button[aria-label="動画プレイヤー"]').first();
     await expect(videoPlayer).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator("video").first()).toHaveAttribute("preload", "none");
 
     // VRT: 動画再生中
     await waitForVisibleMedia(page);
@@ -130,6 +131,7 @@ test.describe("投稿詳細 - 音声", () => {
 
     const waveform = page.locator('svg[viewBox="0 0 100 1"]').first();
     await expect(waveform).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator("audio").first()).toHaveAttribute("preload", "none");
 
     // VRT: 音声（再生前）
     await waitForVisibleMedia(page);

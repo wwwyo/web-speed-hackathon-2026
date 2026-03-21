@@ -113,7 +113,7 @@ const config = {
       chunks: "all",
       cacheGroups: {
         vendor: {
-          test: /[\\/]node_modules[\\/](react|react-dom|react-redux|react-router|scheduler|@remix-run[\\/]router)[\\/]/,
+          test: /[\\/]node_modules[\\/](react|react-dom|react-router|scheduler|@remix-run[\\/]router)[\\/]/,
           name: "vendor",
           filename: "scripts/vendor-[contenthash].js",
           priority: 20,

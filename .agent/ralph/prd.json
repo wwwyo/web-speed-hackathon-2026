@@ -323,7 +323,7 @@
         "Typecheck passes"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": "US-019 で AuthModalPage を移行した後の残り。SearchPage と NewDirectMessageModalPage は比較的シンプルなフォーム。完了後に redux-form パッケージごと削除し、バンドルサイズも削減。"
     },
     {

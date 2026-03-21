@@ -431,3 +431,55 @@ Quality Checks:
 Commit:
 - Hash: pending post-commit
 - Message: `feat: [US-019] - AuthModalPage の redux-form → useState 化`
+
+## 2026-03-21 - US-020 SearchPage・NewDirectMessageModalPage の redux-form → useState 化 + redux-form 完全削除
+
+Implementation:
+- `SearchPage.tsx` から `reduxForm` HOC を除去し、`useState` + ローカルバリデーションに移行。`initialValues.searchText` 変更時に `touched` もリセットする修正を含む
+- `NewDirectMessageModalPage.tsx` から `reduxForm` HOC を除去し、`useState` + ローカルエラーハンドリングに移行。`onSubmit` を props で受け取り、エラー時は `submitError` state で表示
+- `FormInputField.tsx` の `WrappedFieldProps` を `ComponentPropsWithRef<"input">` + `error` prop に置換。`{...input}` スプレッドを除去
+- `NewDirectMessageModalContainer.tsx` から `SubmissionError` を除去。エラーは `NewDirectMessageModalPage` 側で catch して表示
+- `direct_message/validation.ts` / `search/validation.ts` の `FormErrors` 型を `Partial<Record<keyof T, string>>` に置換
+- `index.tsx` から `Provider` / `store` のインポートと JSX ラッパーを削除
+- `store/index.ts` を削除（Redux Store 完全削除）
+- `rspack.config.js` の vendor chunk から `react-redux` を除去
+
+Acceptance Criteria Verification:
+- AC: SearchPage から reduxForm HOC が除去され、useState で管理されている
+  Test case: `rg -n "reduxForm|redux-form" application/client/src/components/application/SearchPage.tsx`
+  Result: no matches
+- AC: NewDirectMessageModalPage から reduxForm HOC が除去され、useState で管理されている
+  Test case: `rg -n "reduxForm|redux-form" application/client/src/components/direct_message/NewDirectMessageModalPage.tsx`
+  Result: no matches
+- AC: redux-form パッケージが package.json から削除されている
+  Test case: `rg -n "redux-form" application/client/package.json`
+  Result: no matches（既に削除済み）
+- AC: store/index.ts から form reducer が除去されている
+  Test case: `ls application/client/src/store/index.ts`
+  Result: ファイル自体が削除されている
+- AC: 検索ページでの検索が正常に動作する
+  Test case: `E2E_BASE_URL=http://localhost:3001 npx playwright test src/search.test.ts --grep "検索ページが表示される|バリデーション|検索結果が表示される|キーワードと"`
+  Result: 7 passed (32.4s)
+- AC: DM新規作成モーダルが正常に動作する
+  Test case: `E2E_BASE_URL=http://localhost:3001 npx playwright test src/dm.test.ts --grep "新規DM開始モーダル|送信ボタンをクリック"`
+  Result: 2 passed (46.0s)
+- AC: 該当箇所のE2Eテストが通っていること
+  Test case: full E2E run (`E2E_BASE_URL=http://localhost:3001 pnpm test`)
+  Result: 78 passed, 5 failed（失敗はすべて無関係: crok-chat サジェスト3件 + search ネガティブ判定2件）
+- AC: codex skill で review を受けること
+  Test case: Codex CLI review
+  Result: Low 1件（SearchPage の touched リセット漏れ）→ 修正済み。blocking issue なし
+- AC: Typecheck passes
+  Test case: `pnpm typecheck`
+  Result: passed
+
+Quality Checks:
+- `pnpm typecheck` -> passed
+- `pnpm build` -> passed (Rspack asset size warning のみ)
+- `rg -n "redux-form|redux" application/client/src/` -> no matches
+- `E2E_BASE_URL=http://localhost:3001 pnpm test` -> 78 passed, 5 failed (pre-existing, unrelated)
+- Codex review -> Low 1件修正済み、no blocking issues
+
+Commit:
+- Hash: pending post-commit
+- Message: `feat: [US-020] - SearchPage・NewDirectMessageModalPage の redux-form → useState 化 + redux-form 完全削除`

@@ -35,9 +35,55 @@ test.describe("投稿詳細", () => {
     await expect(page).toHaveTitle(/さんのつぶやき - CaX/, { timeout: 30_000 });
   });
 
-  // TODO: web-llm の翻訳が重すぎてタイムアウトする。セレクタは button:has-text('Show Translation') で正しい
-  // test("Show Translation をクリックすると投稿内容が翻訳される", async ({ page }) => { ... });
-  // test("翻訳後に Show Original をクリックすると元の投稿文が表示される", async ({ page }) => { ... });
+  test("Show Translation をクリックすると投稿内容が翻訳される", async ({ page }) => {
+    await page.goto("/");
+    const firstArticle = page.locator("article").first();
+    await expect(firstArticle).toBeVisible({ timeout: 30_000 });
+    await firstArticle.click({ position: { x: 10, y: 10 } });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 30_000 });
+
+    const originalText = await page.locator("article p span").first().innerText();
+
+    const translateButton = page.locator("button:has-text('Show Translation')").first();
+    await expect(translateButton).toBeVisible({ timeout: 30_000 });
+    await translateButton.click();
+
+    // Translating... が表示された後、Show Original に変わるのを待つ
+    const showOriginalButton = page.locator("button:has-text('Show Original')").first();
+    await expect(showOriginalButton).toBeVisible({ timeout: 30_000 });
+
+    // 翻訳後のテキストが元と異なる（翻訳されている or 失敗メッセージ）
+    const translatedText = await page.locator("article p span").first().innerText();
+    expect(translatedText).not.toBe(originalText);
+  });
+
+  test("翻訳後に Show Original をクリックすると元の投稿文が表示される", async ({ page }) => {
+    await page.goto("/");
+    const firstArticle = page.locator("article").first();
+    await expect(firstArticle).toBeVisible({ timeout: 30_000 });
+    await firstArticle.click({ position: { x: 10, y: 10 } });
+    await expect(page).toHaveURL(/\/posts\//, { timeout: 30_000 });
+
+    const originalText = await page.locator("article p span").first().innerText();
+
+    // 翻訳する
+    const translateButton = page.locator("button:has-text('Show Translation')").first();
+    await expect(translateButton).toBeVisible({ timeout: 30_000 });
+    await translateButton.click();
+
+    const showOriginalButton = page.locator("button:has-text('Show Original')").first();
+    await expect(showOriginalButton).toBeVisible({ timeout: 30_000 });
+
+    // Show Original をクリックして元に戻す
+    await showOriginalButton.click();
+
+    // Show Translation ボタンが再表示される
+    await expect(page.locator("button:has-text('Show Translation')").first()).toBeVisible({ timeout: 10_000 });
+
+    // テキストが元に戻っている
+    const restoredText = await page.locator("article p span").first().innerText();
+    expect(restoredText).toBe(originalText);
+  });
 });
 
 test.describe("投稿詳細 - 動画", () => {

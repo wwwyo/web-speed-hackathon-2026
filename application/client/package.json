@@ -14,11 +14,7 @@
     "buffer": "6.0.3",
     "classnames": "2.5.1",
     "fast-average-color": "9.5.0",
-    "image-size": "2.0.2",
-    "jquery": "3.7.1",
-    "jquery-binarytransport": "1.0.0",
     "katex": "0.16.25",
-    "normalize.css": "8.0.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-helmet": "npm:@dr.pogodin/react-helmet@3.0.4",
@@ -29,8 +25,7 @@
     "redux-form": "8.3.10",
     "rehype-katex": "7.0.1",
     "remark-gfm": "4.0.1",
-    "remark-math": "6.0.0",
-    "tiny-invariant": "1.3.3"
+    "remark-math": "6.0.0"
   },
   "devDependencies": {
     "@rspack/cli": "1.7.9",
@@ -38,7 +33,6 @@
     "@rspack/dev-server": "1.2.1",
     "@tailwindcss/postcss": "4.2.2",
     "@tsconfig/strictest": "2.0.8",
-    "@types/jquery": "3.5.33",
     "@types/node": "22.18.8",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.1",

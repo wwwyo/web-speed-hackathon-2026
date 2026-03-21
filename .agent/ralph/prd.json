@@ -141,6 +141,83 @@
       "priority": 8,
       "passes": true,
       "notes": "現在は splitChunks で CSS のみ cacheGroup 定義があり、JS ベンダーライブラリは自動分割に任せている。明示的に vendor チャンクを分離すればデプロイ時のキャッシュヒット率が向上。"
+    },
+    {
+      "id": "US-009",
+      "title": "standardized-audio-context ポリフィル削除",
+      "description": "開発者として、standardized-audio-context（77KB+）を削除し、ブラウザネイティブの AudioContext を使用してバンドルサイズを削減したい。",
+      "acceptanceCriteria": [
+        "standardized-audio-context が package.json から削除されている",
+        "rspack.config の ProvidePlugin から AudioContext のエイリアスが削除されている（またはネイティブ AudioContext に置換）",
+        "AudioContext を使用している箇所がブラウザネイティブ API で動作する",
+        "音声再生機能（Sound 投稿など）が正しく動作する",
+        "該当箇所のE2Eテストが通っていること",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "rspack.config.js の ProvidePlugin で AudioContext をグローバル注入している。モダンブラウザではネイティブ AudioContext が使えるため、ポリフィルは不要な可能性が高い。buffer ポリフィルも同様に検討。"
+    },
+    {
+      "id": "US-010",
+      "title": "react-syntax-highlighter を軽量代替に置換",
+      "description": "開発者として、react-syntax-highlighter（全言語定義を含む巨大バンドル）を軽量な代替（prism-react-renderer 等）に置換するか、使用言語を限定してバンドルサイズを大幅に削減したい。",
+      "acceptanceCriteria": [
+        "react-syntax-highlighter が軽量代替に置換されている、または使用言語のみのインポートに変更されている",
+        "Crok AI チャットのコードブロックが正しくシンタックスハイライトされる",
+        "バンドルサイズが削減されている（ビルド出力で確認）",
+        "該当箇所のE2Eテストが通っていること",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "client/src/components/crok/CodeBlock.tsx で使用。react-syntax-highlighter は全言語定義を含むため非常に大きい。prism-react-renderer や shiki 等の軽量代替、または dynamic import による遅延読み込みを検討。"
+    },
+    {
+      "id": "US-011",
+      "title": "Crok 関連ライブラリの dynamic import 化",
+      "description": "開発者として、react-markdown・rehype-katex・remark-gfm・remark-math を dynamic import にして初期バンドルから除外し、Crok チャットページアクセス時にのみロードされるようにしたい。",
+      "acceptanceCriteria": [
+        "react-markdown, rehype-katex, remark-gfm, remark-math が dynamic import（React.lazy または手動 import()）で読み込まれている",
+        "初期バンドル（main chunk）にこれらのライブラリが含まれていない",
+        "Crok チャットページでマークダウン・数式・GFM が正しくレンダリングされる",
+        "該当箇所のE2Eテストが通っていること",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "すべて client/src/components/crok/ChatMessage.tsx のみで使用。Crok ページは全ユーザーがアクセスするわけではないため、遅延読み込みの効果が高い。"
+    },
+    {
+      "id": "US-012",
+      "title": "classnames を軽量ユーティリティ関数に置換",
+      "description": "開発者として、classnames ライブラリを数行のユーティリティ関数に置き換え、依存を1つ減らしたい。",
+      "acceptanceCriteria": [
+        "classnames パッケージが package.json から削除されている",
+        "classnames の全使用箇所（9ファイル）が軽量ユーティリティ関数に置換されている",
+        "条件付きクラス名の結合が正しく動作する（object syntax、配列、文字列のケースすべて）",
+        "該当箇所のE2Eテストが通っていること",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "9ファイルで使用。`(...args) => args.flat().filter(Boolean).join(' ')` 程度の関数で代替可能。ただしobject syntax（{className: boolean}）を使っている箇所がある場合はその対応も必要。"
+    },
+    {
+      "id": "US-013",
+      "title": "react-helmet を React 19 ネイティブに移行",
+      "description": "開発者として、react-helmet（@dr.pogodin/react-helmet）を React 19 のネイティブ <title> / <meta> コンポーネントに移行し、依存を削減したい。",
+      "acceptanceCriteria": [
+        "react-helmet パッケージが package.json から削除されている",
+        "HelmetProvider が AppContainer から削除されている",
+        "全12ファイルの Helmet 使用箇所が React 19 の <title>, <meta>, <link> コンポーネントに置換されている",
+        "各ページのタイトルが正しく設定される",
+        "該当箇所のE2Eテストが通っていること",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "12ファイルで使用。React 19 では JSX 内で直接 <title>, <meta>, <link> を返すことでドキュメントヘッドを管理できる。HelmetProvider も不要になる。リファクタ範囲は広いが各ファイルの変更は小さい。"
     }
   ]
 }

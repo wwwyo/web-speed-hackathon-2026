@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState, useTransition } from "react";
 
 import { TypingIndicator } from "@web-speed-hackathon-2026/client/src/components/crok/TypingIndicator";
 import { CrokLogo } from "@web-speed-hackathon-2026/client/src/components/foundation/CrokLogo";
@@ -28,6 +28,19 @@ const UserMessage = ({ content }: { content: string }) => {
 };
 
 const AssistantMessage = ({ content, isStreaming }: { content: string; isStreaming?: boolean }) => {
+  const [showMarkdown, setShowMarkdown] = useState(false);
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!isStreaming && content) {
+      startTransition(() => {
+        setShowMarkdown(true);
+      });
+    } else {
+      setShowMarkdown(false);
+    }
+  }, [isStreaming, content]);
+
   return (
     <div className="mb-6 flex gap-4">
       <div className="h-8 w-8 shrink-0">
@@ -37,12 +50,12 @@ const AssistantMessage = ({ content, isStreaming }: { content: string; isStreami
         <div className="text-cax-text mb-1 text-sm font-medium">Crok</div>
         <div className="markdown text-cax-text max-w-none">
           {content ? (
-            isStreaming ? (
-              <p className="whitespace-pre-wrap">{content}</p>
-            ) : (
+            showMarkdown ? (
               <Suspense fallback={<p className="whitespace-pre-wrap">{content}</p>}>
                 <ChatMessageMarkdown content={content} />
               </Suspense>
+            ) : (
+              <p className="whitespace-pre-wrap">{content}</p>
             )
           ) : (
             <TypingIndicator />

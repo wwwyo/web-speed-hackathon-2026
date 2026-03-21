@@ -1,5 +1,6 @@
 import {
   ChangeEvent,
+  memo,
   useCallback,
   useId,
   useRef,
@@ -14,6 +15,85 @@ import { ProfileImage } from "@web-speed-hackathon-2026/client/src/components/fo
 import { DirectMessageFormData } from "@web-speed-hackathon-2026/client/src/direct_message/types";
 import { classNames } from "@web-speed-hackathon-2026/client/src/utils/class_names";
 import { formatTime } from "@web-speed-hackathon-2026/client/src/utils/format_date";
+
+interface MessageInputFormProps {
+  isSubmitting: boolean;
+  onTyping: () => void;
+  onSubmit: (params: DirectMessageFormData) => Promise<void>;
+}
+
+const MessageInputForm = memo(({ isSubmitting, onTyping, onSubmit }: MessageInputFormProps) => {
+  const formRef = useRef<HTMLFormElement>(null);
+  const textRef = useRef("");
+  const textAreaId = useId();
+  const [, forceRender] = useState(0);
+
+  const handleChange = useCallback(
+    (event: ChangeEvent<HTMLTextAreaElement>) => {
+      textRef.current = event.target.value;
+      forceRender((n) => n + 1);
+      onTyping();
+    },
+    [onTyping],
+  );
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+        event.preventDefault();
+        formRef.current?.requestSubmit();
+      }
+    },
+    [],
+  );
+
+  const handleSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const body = textRef.current.trim();
+      if (!body) return;
+      void onSubmit({ body }).then(() => {
+        textRef.current = "";
+        forceRender((n) => n + 1);
+      });
+    },
+    [onSubmit],
+  );
+
+  const text = textRef.current;
+  const textAreaRows = Math.min((text || "").split("\n").length, 5);
+  const isInvalid = text.trim().length === 0;
+
+  return (
+    <form
+      className="border-cax-border bg-cax-surface flex items-end gap-2 border-t p-4"
+      onSubmit={handleSubmit}
+      ref={formRef}
+    >
+      <div className="flex grow">
+        <label className="sr-only" htmlFor={textAreaId}>
+          内容
+        </label>
+        <textarea
+          id={textAreaId}
+          className="border-cax-border placeholder-cax-text-subtle focus:outline-cax-brand w-full resize-none rounded-xl border px-3 py-2 focus:outline-2 focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          value={text}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          rows={textAreaRows}
+          disabled={isSubmitting}
+        />
+      </div>
+      <button
+        className="bg-cax-brand text-cax-surface-raised hover:bg-cax-brand-strong rounded-full px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={isInvalid || isSubmitting}
+        type="submit"
+      >
+        <FontAwesomeIcon iconType="arrow-right" styleType="solid" />
+      </button>
+    </form>
+  );
+});
 
 interface Props {
   conversationError: Error | null;
@@ -34,44 +114,10 @@ export const DirectMessagePage = ({
   onTyping,
   onSubmit,
 }: Props) => {
-  const formRef = useRef<HTMLFormElement>(null);
   const messageListRef = useRef<HTMLUListElement>(null);
-  const textAreaId = useId();
 
   const peer =
     conversation.initiator.id !== activeUser.id ? conversation.initiator : conversation.member;
-
-  const [text, setText] = useState("");
-  const textAreaRows = Math.min((text || "").split("\n").length, 5);
-  const isInvalid = text.trim().length === 0;
-
-  const handleChange = useCallback(
-    (event: ChangeEvent<HTMLTextAreaElement>) => {
-      setText(event.target.value);
-      onTyping();
-    },
-    [onTyping],
-  );
-
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-        event.preventDefault();
-        formRef.current?.requestSubmit();
-      }
-    },
-    [formRef],
-  );
-
-  const handleSubmit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      void onSubmit({ body: text.trim() }).then(() => {
-        setText("");
-      });
-    },
-    [onSubmit, text],
-  );
 
   useEffect(() => {
     const scrollToBottom = () => {
@@ -170,33 +216,7 @@ export const DirectMessagePage = ({
           </p>
         )}
 
-        <form
-          className="border-cax-border bg-cax-surface flex items-end gap-2 border-t p-4"
-          onSubmit={handleSubmit}
-          ref={formRef}
-        >
-          <div className="flex grow">
-            <label className="sr-only" htmlFor={textAreaId}>
-              内容
-            </label>
-            <textarea
-              id={textAreaId}
-              className="border-cax-border placeholder-cax-text-subtle focus:outline-cax-brand w-full resize-none rounded-xl border px-3 py-2 focus:outline-2 focus:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              value={text}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              rows={textAreaRows}
-              disabled={isSubmitting}
-            />
-          </div>
-          <button
-            className="bg-cax-brand text-cax-surface-raised hover:bg-cax-brand-strong rounded-full px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={isInvalid || isSubmitting}
-            type="submit"
-          >
-            <FontAwesomeIcon iconType="arrow-right" styleType="solid" />
-          </button>
-        </form>
+        <MessageInputForm isSubmitting={isSubmitting} onTyping={onTyping} onSubmit={onSubmit} />
       </div>
     </section>
   );

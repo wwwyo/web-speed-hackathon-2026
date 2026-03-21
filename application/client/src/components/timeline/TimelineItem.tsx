@@ -28,20 +28,39 @@ const isClickedAnchorOrButton = (
   return false;
 };
 
-/**
- * @typedef {object} Props
- * @property {Models.Post} post
- */
 interface Props {
-  post: Models.Post;
+  postId: string;
+  userName: string;
+  userUsername: string;
+  profileImageId: string;
+  profileImageAlt: string;
+  createdAt: string;
+  text: string;
+  images: Models.Image[];
+  movieId: string | undefined;
+  soundId: string | undefined;
+  soundTitle: string | undefined;
+  soundArtist: string | undefined;
+  soundPeaks: number[] | undefined;
 }
 
-const TimelineItemComponent = ({ post }: Props) => {
+const TimelineItemComponent = ({
+  postId,
+  userName,
+  userUsername,
+  profileImageId,
+  profileImageAlt,
+  createdAt,
+  text,
+  images,
+  movieId,
+  soundId,
+  soundTitle,
+  soundArtist,
+  soundPeaks,
+}: Props) => {
   const navigate = useNavigate();
 
-  /**
-   * ボタンやリンク以外の箇所をクリックしたとき かつ 文字が選択されてないとき、投稿詳細ページに遷移する
-   */
   const handleClick = useCallback<MouseEventHandler>(
     (ev) => {
       const isSelectedText = document.getSelection()?.isCollapsed === false;
@@ -49,10 +68,10 @@ const TimelineItemComponent = ({ post }: Props) => {
         !isClickedAnchorOrButton(ev.target, ev.currentTarget) &&
         !isSelectedText
       ) {
-        navigate(`/posts/${post.id}`);
+        navigate(`/posts/${postId}`);
       }
     },
-    [post, navigate],
+    [postId, navigate],
   );
 
   return (
@@ -64,12 +83,12 @@ const TimelineItemComponent = ({ post }: Props) => {
         <div className="shrink-0 grow-0 pr-2 sm:pr-4">
           <Link
             className="border-cax-border bg-cax-surface-subtle block h-12 w-12 overflow-hidden rounded-full border hover:opacity-75 sm:h-16 sm:w-16"
-            to={`/users/${post.user.username}`}
+            to={`/users/${userUsername}`}
           >
             <ProfileImage
               height={200}
               loading="lazy"
-              profileImage={post.user.profileImage}
+              profileImage={{ id: profileImageId, alt: profileImageAlt }}
               width={200}
             />
           </Link>
@@ -78,37 +97,37 @@ const TimelineItemComponent = ({ post }: Props) => {
           <p className="overflow-hidden text-sm text-ellipsis whitespace-nowrap">
             <Link
               className="text-cax-text pr-1 font-bold hover:underline"
-              to={`/users/${post.user.username}`}
+              to={`/users/${userUsername}`}
             >
-              {post.user.name}
+              {userName}
             </Link>
             <Link
               className="text-cax-text-muted pr-1 hover:underline"
-              to={`/users/${post.user.username}`}
+              to={`/users/${userUsername}`}
             >
-              @{post.user.username}
+              @{userUsername}
             </Link>
             <span className="text-cax-text-muted pr-1">-</span>
-            <Link className="text-cax-text-muted pr-1 hover:underline" to={`/posts/${post.id}`}>
-              <time dateTime={toISOString(post.createdAt)}>{formatDate(post.createdAt)}</time>
+            <Link className="text-cax-text-muted pr-1 hover:underline" to={`/posts/${postId}`}>
+              <time dateTime={toISOString(createdAt)}>{formatDate(createdAt)}</time>
             </Link>
           </p>
           <div className="text-cax-text leading-relaxed">
-            <TranslatableText text={post.text} />
+            <TranslatableText text={text} />
           </div>
-          {post.images?.length > 0 ? (
+          {images.length > 0 ? (
             <div className="relative mt-2 w-full">
-              <ImageArea images={post.images} />
+              <ImageArea images={images} />
             </div>
           ) : null}
-          {post.movie ? (
+          {movieId != null ? (
             <div className="relative mt-2 w-full">
-              <MovieArea movie={post.movie} />
+              <MovieArea movie={{ id: movieId }} />
             </div>
           ) : null}
-          {post.sound ? (
+          {soundId != null ? (
             <div className="relative mt-2 w-full">
-              <SoundArea sound={post.sound} />
+              <SoundArea sound={{ id: soundId, title: soundTitle!, artist: soundArtist!, peaks: soundPeaks! }} />
             </div>
           ) : null}
         </div>

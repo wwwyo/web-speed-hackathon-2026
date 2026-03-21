@@ -281,8 +281,7 @@ directMessageRouter.post("/dm/:conversationId/read", async (req, res) => {
 
   if (updatedCount > 0) {
     const unreadCount = await countUnreadDirectMessagesForUser(req.session.userId);
-    const latestPeerMessage = await DirectMessage.unscoped().findOne({
-      attributes: ["id", "body", "senderId", "conversationId", "isRead", "createdAt", "updatedAt"],
+    const latestPeerMessage = await DirectMessage.findOne({
       order: [
         ["createdAt", "DESC"],
         ["id", "DESC"],

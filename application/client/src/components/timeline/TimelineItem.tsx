@@ -42,6 +42,7 @@ interface Props {
   soundTitle: string | undefined;
   soundArtist: string | undefined;
   soundPeaks: number[] | undefined;
+  priority?: boolean;
 }
 
 const TimelineItemComponent = ({
@@ -58,6 +59,7 @@ const TimelineItemComponent = ({
   soundTitle,
   soundArtist,
   soundPeaks,
+  priority = false,
 }: Props) => {
   const navigate = useNavigate();
 
@@ -117,7 +119,7 @@ const TimelineItemComponent = ({
           </div>
           {images.length > 0 ? (
             <div className="relative mt-2 w-full">
-              <ImageArea images={images} />
+              <ImageArea images={images} priority={priority} />
             </div>
           ) : null}
           {movieId != null ? (

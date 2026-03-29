@@ -9,22 +9,7 @@ import {
   PUBLIC_PATH,
   UPLOAD_PATH,
 } from "@web-speed-hackathon-2026/server/src/paths";
-import { Post } from "@web-speed-hackathon-2026/server/src/models";
-
 const HASHED_FILE_RE = /chunk-[0-9a-f]+\.js$/;
-
-let cachedInitialPosts: string | null = null;
-
-async function getInitialPostsJSON(): Promise<string> {
-  if (cachedInitialPosts != null) return cachedInitialPosts;
-  const posts = await Post.findAll({ limit: 3, offset: 0 });
-  cachedInitialPosts = JSON.stringify(posts);
-  return cachedInitialPosts;
-}
-
-export function invalidateInitialPostsCache() {
-  cachedInitialPosts = null;
-}
 
 let cachedIndexHtml: string | null = null;
 
@@ -64,16 +49,10 @@ staticRouter.use(
   }),
 );
 
-// SPA fallback: 静的ファイルにマッチしなかったリクエストに index.html + 初期データを返す
-staticRouter.use(async (_req, res) => {
+// SPA fallback: 静的ファイルにマッチしなかったリクエストに index.html を返す
+staticRouter.use((_req, res) => {
   const html = getIndexHtml();
-  const postsJSON = await getInitialPostsJSON();
-  const injected = html.replace(
-    "</head>",
-    `<script>window.__INITIAL_POSTS__=${postsJSON}</script></head>`,
-  );
-
   res.setHeader("Content-Type", "text/html");
   res.setHeader("Cache-Control", "no-cache");
-  res.send(injected);
+  res.send(html);
 });

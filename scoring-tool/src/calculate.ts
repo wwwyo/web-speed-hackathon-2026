@@ -184,16 +184,20 @@ async function* _calculate({
         puppeteerPage,
       });
 
-      // LHR HTMLレポートを生成してブラウザで開く
+      // LHR レポートを保存
       try {
         const reportDir = path.join(os.tmpdir(), "wsh-reports");
         fs.mkdirSync(reportDir, { recursive: true });
-        const safeName = encodeURIComponent(target.name);
-        const reportPath = path.join(reportDir, `${safeName}.html`);
+        // JSON
+        const jsonPath = path.join(reportDir, `${target.name}.json`);
+        fs.writeFileSync(jsonPath, JSON.stringify(lhr, null, 2));
+        consola.info(`JSON report: ${jsonPath}`);
+        // HTML
+        const reportPath = path.join(reportDir, `${target.name}.html`);
         const html = generateReport(lhr as Parameters<typeof generateReport>[0]);
         fs.writeFileSync(reportPath, html);
-        consola.debug(`Report saved: ${reportPath}`);
-        exec(`open "${reportPath}"`);
+        consola.debug(`HTML report: ${reportPath}`);
+        exec(`open "${jsonPath}"`);
       } catch (reportErr) {
         consola.debug("Failed to generate report:", reportErr);
       }

@@ -7,7 +7,7 @@ interface Props {
 export const Timeline = ({ timeline }: Props) => {
   return (
     <section>
-      {timeline.map((post) => {
+      {timeline.map((post, index) => {
         return (
           <TimelineItem
             key={post.id}
@@ -24,6 +24,7 @@ export const Timeline = ({ timeline }: Props) => {
             soundTitle={post.sound?.title}
             soundArtist={post.sound?.artist}
             soundPeaks={post.sound?.peaks}
+            priority={index < 2}
           />
         );
       })}

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WSH 2026 学習コンテンツ</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-hover: #79c0ff;
+    --green: #3fb950;
+    --orange: #d29922;
+    --red: #f85149;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .container { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+  h1 { font-size: 2rem; margin-bottom: 8px; }
+  .subtitle { color: var(--text-muted); margin-bottom: 40px; font-size: 1.1rem; }
+  .score-banner { background: linear-gradient(135deg, #1a1e2e, #1e293b); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 40px; display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+  .score-item { text-align: center; flex: 1; min-width: 120px; }
+  .score-value { font-size: 2.5rem; font-weight: 700; }
+  .score-value.current { color: var(--orange); }
+  .score-value.target { color: var(--green); }
+  .score-value.gap { color: var(--red); }
+  .score-label { color: var(--text-muted); font-size: 0.85rem; }
+  .arrow { font-size: 2rem; color: var(--text-muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-decoration: none; color: var(--text); transition: border-color .2s, transform .2s; }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card-number { display: inline-block; background: var(--accent); color: var(--bg); font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-bottom: 8px; }
+  .card h3 { font-size: 1rem; margin-bottom: 8px; }
+  .card p { color: var(--text-muted); font-size: 0.85rem; }
+  .tag { display: inline-block; font-size: 0.7rem; padding: 2px 6px; border-radius: 3px; margin-top: 8px; margin-right: 4px; }
+  .tag-lcp { background: #1a3a2a; color: var(--green); }
+  .tag-tbt { background: #3a2a1a; color: var(--orange); }
+  .tag-fcp { background: #1a2a3a; color: var(--accent); }
+  .tag-bundle { background: #2a1a3a; color: #bc8cff; }
+  .tag-security { background: #3a1a1a; color: var(--red); }
+  .strategy { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-top: 40px; }
+  .strategy h2 { font-size: 1.3rem; margin-bottom: 16px; }
+  .strategy ul { list-style: none; padding: 0; }
+  .strategy li { padding: 8px 0; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 8px; }
+  .strategy li:last-child { border-bottom: none; }
+  .strategy li::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>WSH 2026 学習コンテンツ</h1>
+  <p class="subtitle">Web Speed Hackathon 2026 で実施した最適化のうち、理解を深めるべき11項目</p>
+
+  <div class="score-banner">
+    <div class="score-item"><div class="score-value current">860</div><div class="score-label">今年のスコア</div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="score-item"><div class="score-value target">950+</div><div class="score-label">優勝ライン</div></div>
+    <div class="arrow">=</div>
+    <div class="score-item"><div class="score-value gap">+90</div><div class="score-label">必要な差分</div></div>
+  </div>
+
+  <div class="grid">
+    <a class="card" href="03-http-cache.html">
+      <span class="card-number">#3</span>
+      <h3>HTTPヘッダーとキャッシュ設計</h3>
+      <p>Cache-Control, ETag, immutable の仕組みと、なぜ no-store を外すだけで速くなるのか</p>
+      <span class="tag tag-fcp">FCP</span><span class="tag tag-lcp">LCP</span>
+    </a>
+    <a class="card" href="04-compression.html">
+      <span class="card-number">#4</span>
+      <h3>レスポンス圧縮</h3>
+      <p>gzip/Brotli 圧縮の仕組み、compression ミドルウェアが何をしているか</p>
+      <span class="tag tag-fcp">FCP</span><span class="tag tag-lcp">LCP</span>
+    </a>
+    <a class="card" href="05-html-rendering.html">
+      <span class="card-number">#5</span>
+      <h3>HTML最適化とレンダリング開始タイミング</h3>
+      <p>script の defer/async の違い、load vs DOMContentLoaded、parser blocking の仕組み</p>
+      <span class="tag tag-fcp">FCP</span><span class="tag tag-lcp">LCP</span><span class="tag tag-tbt">TBT</span>
+    </a>
+    <a class="card" href="13-gif-to-mp4.html">
+      <span class="card-number">#13</span>
+      <h3>GIF &rarr; MP4 変換</h3>
+      <p>GIF vs MP4 の構造的違い、ffmpeg 変換オプション、video タグの属性</p>
+      <span class="tag tag-lcp">LCP</span><span class="tag tag-bundle">Transfer</span>
+    </a>
+    <a class="card" href="14-binary-fetch.html">
+      <span class="card-number">#14</span>
+      <h3>バイナリ取得の廃止</h3>
+      <p>なぜ fetch+BlobURL ではなく直接 img src が良いのか、object-fit: cover の仕組み</p>
+      <span class="tag tag-lcp">LCP</span><span class="tag tag-tbt">TBT</span>
+    </a>
+    <a class="card" href="20-woff2-font.html">
+      <span class="card-number">#20</span>
+      <h3>WOFF2 + font-display</h3>
+      <p>フォント形式の違い、サブセット化、font-display の4つの値と使い分け</p>
+      <span class="tag tag-fcp">FCP</span><span class="tag tag-lcp">LCP</span>
+    </a>
+    <a class="card" href="30-syntax-highlighter.html">
+      <span class="card-number">#30</span>
+      <h3>重いライブラリの軽量化</h3>
+      <p>react-syntax-highlighter の Tree Shaking 問題と prism-light パターン</p>
+      <span class="tag tag-bundle">Bundle</span>
+    </a>
+    <a class="card" href="47-fast-average-color.html">
+      <span class="card-number">#47</span>
+      <h3>メインスレッドブロック</h3>
+      <p>FastAverageColor の precision vs speed、Long Task の見つけ方と対処</p>
+      <span class="tag tag-tbt">TBT</span>
+    </a>
+    <a class="card" href="53-dm-crok-tbt.html">
+      <span class="card-number">#53</span>
+      <h3>SSE + rAF によるTBT改善</h3>
+      <p>MutationObserver の暴走、requestAnimationFrame バッチング、ストリーミング描画戦略</p>
+      <span class="tag tag-tbt">TBT</span>
+    </a>
+    <a class="card" href="59-react-helmet.html">
+      <span class="card-number">#59</span>
+      <h3>react-helmet の脱却</h3>
+      <p>React 19 のネイティブ document metadata サポートと移行パターン</p>
+      <span class="tag tag-bundle">Bundle</span>
+    </a>
+    <a class="card" href="64-redos.html">
+      <span class="card-number">#64</span>
+      <h3>ReDoS 正規表現の修正</h3>
+      <p>Catastrophic Backtracking の仕組み、危険パターンの見分け方、安全な書き直し</p>
+      <span class="tag tag-security">Security</span><span class="tag tag-tbt">TBT</span>
+    </a>
+  </div>
+
+  <div class="strategy">
+    <h2>860 &rarr; 950+ への戦略</h2>
+    <ul>
+      <li>SSR/Streaming HTML の導入で FCP/LCP をさらに短縮（最大+40点）</li>
+      <li>AVIF 画像フォーマットの採用で転送量を WebP からさらに30%削減</li>
+      <li>Speculation Rules API による次ページの先読み</li>
+      <li>INP の徹底的な改善（Interaction to Next Paint、200ms以内を目指す）</li>
+      <li>Critical CSS のインライン化で render-blocking を完全除去</li>
+      <li>Service Worker による戦略的プリキャッシュ（ただしSW内の処理を重くしない）</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

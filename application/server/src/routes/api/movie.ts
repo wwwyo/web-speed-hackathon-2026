@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from "uuid";
 import { UPLOAD_PATH } from "@web-speed-hackathon-2026/server/src/paths";
 import { convertMovie } from "@web-speed-hackathon-2026/server/src/utils/convert_movie";
 
-const EXTENSION = "mp4";
+const EXTENSION = "webm";
 const ALLOWED_EXTENSIONS = new Set(["mp4", "mkv", "webm", "avi", "mov"]);
 
 export const movieRouter = Router();

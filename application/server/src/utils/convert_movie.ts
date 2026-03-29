@@ -21,7 +21,7 @@ const TIMEOUT_MS = 30_000;
 export async function convertMovie(input: Buffer): Promise<Buffer> {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "movie-"));
   const inputPath = path.join(tmpDir, `input-${randomUUID()}`);
-  const outputPath = path.join(tmpDir, `output-${randomUUID()}.mp4`);
+  const outputPath = path.join(tmpDir, `output-${randomUUID()}.webm`);
 
   try {
     await fs.writeFile(inputPath, input);
@@ -36,14 +36,12 @@ export async function convertMovie(input: Buffer): Promise<Buffer> {
           "-vf",
           "crop='min(iw,ih)':'min(iw,ih)',scale=320:320",
           "-an",
-          "-pix_fmt",
-          "yuv420p",
-          "-movflags",
-          "+faststart",
-          "-preset",
-          "ultrafast",
+          "-c:v",
+          "libvpx-vp9",
+          "-b:v",
+          "0",
           "-crf",
-          "30",
+          "45",
         ])
         .output(outputPath)
         .on("end", () => {

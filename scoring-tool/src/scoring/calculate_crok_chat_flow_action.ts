@@ -138,7 +138,7 @@ export async function calculateCrokChatFlowAction({
   });
 
   return {
-    audits: result!.lhr.audits,
+    lhr: result!.lhr,
     breakdown,
     scoreX100,
   };

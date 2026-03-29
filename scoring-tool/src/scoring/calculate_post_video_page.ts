@@ -40,7 +40,7 @@ export async function calculatePostVideoPage({ baseUrl, playwrightPage, puppetee
   });
 
   return {
-    audits: result!.lhr.audits,
+    lhr: result!.lhr,
     breakdown,
     scoreX100,
   };

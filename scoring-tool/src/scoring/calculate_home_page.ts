@@ -40,7 +40,7 @@ export async function calculateHomePage({ baseUrl, playwrightPage, puppeteerPage
   });
 
   return {
-    audits: result!.lhr.audits,
+    lhr: result!.lhr,
     breakdown,
     scoreX100,
   };

@@ -86,7 +86,7 @@ export async function calculateSearchPostFlowAction({
   });
 
   return {
-    audits: result!.lhr.audits,
+    lhr: result!.lhr,
     breakdown,
     scoreX100,
   };

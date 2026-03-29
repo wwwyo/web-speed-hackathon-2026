@@ -148,7 +148,7 @@ export async function calculateUserAuthFlowAction({
   });
 
   return {
-    audits: result!.lhr.audits,
+    lhr: result!.lhr,
     breakdown,
     scoreX100,
   };

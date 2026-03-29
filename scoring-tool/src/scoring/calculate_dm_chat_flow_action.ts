@@ -190,7 +190,7 @@ export async function calculateDmChatFlowAction({
   });
 
   return {
-    audits: result!.lhr.audits,
+    lhr: result!.lhr,
     breakdown,
     scoreX100,
   };

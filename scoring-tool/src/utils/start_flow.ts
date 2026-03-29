@@ -11,14 +11,8 @@ export async function startFlow(page: puppeteer.Page) {
         formFactor: "desktop",
         maxWaitForFcp: 120 * 1000,
         maxWaitForLoad: 180 * 1000,
-        onlyAudits: [
-          "first-contentful-paint",
-          "speed-index",
-          "largest-contentful-paint",
-          "total-blocking-time",
-          "cumulative-layout-shift",
-          "interaction-to-next-paint",
-        ],
+        // onlyAudits を外して全 audit を実行（Diagnostics/Opportunities を含むレポート生成のため）
+        // スコア計算は calculate_hackathon_score.ts で6メトリクスのみ使用するため結果に影響なし
         screenEmulation: {
           disabled: true,
         },

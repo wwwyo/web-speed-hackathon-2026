@@ -265,7 +265,7 @@ export async function calculatePostFlowAction({ baseUrl, playwrightPage, puppete
   });
 
   return {
-    audits: result!.lhr.audits,
+    lhr: result!.lhr,
     breakdown,
     scoreX100,
   };

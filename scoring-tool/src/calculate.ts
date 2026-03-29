@@ -1,6 +1,11 @@
+import { exec } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { setTimeout } from "node:timers/promises";
 
 import _ from "lodash";
+import { generateReport } from "lighthouse";
 import mergeErrorCause from "merge-error-cause";
 import type * as playwright from "playwright";
 import type * as puppeteer from "puppeteer";
@@ -30,7 +35,7 @@ type Target = {
     baseUrl: string;
     playwrightPage: playwright.Page;
     puppeteerPage: puppeteer.Page;
-  }) => Promise<{ breakdown: MetricScoreBreakdown[]; scoreX100: number }>;
+  }) => Promise<{ breakdown: MetricScoreBreakdown[]; lhr: unknown; scoreX100: number }>;
   maxScore: number;
   name: string;
 };
@@ -173,11 +178,26 @@ async function* _calculate({
 
     try {
       const { playwrightPage, puppeteerPage } = context;
-      const { breakdown, scoreX100 } = await target.func({
+      const { breakdown, lhr, scoreX100 } = await target.func({
         baseUrl,
         playwrightPage,
         puppeteerPage,
       });
+
+      // LHR HTMLレポートを生成してブラウザで開く
+      try {
+        const reportDir = path.join(os.tmpdir(), "wsh-reports");
+        fs.mkdirSync(reportDir, { recursive: true });
+        const safeName = encodeURIComponent(target.name);
+        const reportPath = path.join(reportDir, `${safeName}.html`);
+        const html = generateReport(lhr as Parameters<typeof generateReport>[0]);
+        fs.writeFileSync(reportPath, html);
+        consola.debug(`Report saved: ${reportPath}`);
+        exec(`open "${reportPath}"`);
+      } catch (reportErr) {
+        consola.debug("Failed to generate report:", reportErr);
+      }
+
       yield { breakdown, scoreX100, target };
     } catch (err) {
       consola.error(mergeErrorCause(err));

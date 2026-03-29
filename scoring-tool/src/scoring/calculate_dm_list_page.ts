@@ -92,7 +92,7 @@ export async function calculateDmListPage({ baseUrl, playwrightPage, puppeteerPa
   });
 
   return {
-    audits: result!.lhr.audits,
+    lhr: result!.lhr,
     breakdown,
     scoreX100,
   };

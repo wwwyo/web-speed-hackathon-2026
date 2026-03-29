@@ -40,7 +40,7 @@ export async function calculateTermsPage({ baseUrl, playwrightPage, puppeteerPag
   });
 
   return {
-    audits: result!.lhr.audits,
+    lhr: result!.lhr,
     breakdown,
     scoreX100,
   };

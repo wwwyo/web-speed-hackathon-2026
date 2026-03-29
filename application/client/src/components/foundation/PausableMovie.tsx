@@ -6,13 +6,12 @@ import { classNames } from "@web-speed-hackathon-2026/client/src/utils/class_nam
 
 interface Props {
   src: string;
-  poster?: string;
 }
 
 /**
  * クリックすると再生・一時停止を切り替えます。
  */
-export const PausableMovie = ({ src, poster }: Props) => {
+export const PausableMovie = ({ src }: Props) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(true);
 
@@ -54,8 +53,8 @@ export const PausableMovie = ({ src, poster }: Props) => {
           className="w-full"
           loop
           muted
+          preload="none"
           playsInline
-          poster={poster}
           src={src}
           width={100}
         />

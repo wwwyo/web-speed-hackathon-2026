@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#53 SSE + rAF によるTBT改善 - WSH学習</title>
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922}
+  *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.7}.container{max-width:800px;margin:0 auto;padding:40px 24px}a{color:var(--accent)}.back{display:inline-block;margin-bottom:24px;color:var(--muted);text-decoration:none;font-size:.9rem}.back:hover{color:var(--accent)}h1{font-size:1.8rem;margin-bottom:8px}.meta{color:var(--muted);margin-bottom:32px}h2{font-size:1.3rem;margin:32px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;margin:20px 0 8px}p,li{margin-bottom:8px}ul,ol{padding-left:24px}pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:16px 0;font-size:.85rem;line-height:1.5}code{font-family:'SF Mono',Consolas,monospace;font-size:.85em}.box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0}.box-title{font-weight:700;margin-bottom:8px}.box.warn{border-color:var(--orange)}.box.good{border-color:var(--green)}.box.bad{border-color:var(--red)}.diagram{background:#1a1e2e;border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;font-family:monospace;font-size:.85rem;line-height:1.8;white-space:pre;overflow-x:auto}.quiz{background:#1a2a1a;border:1px solid var(--green);border-radius:8px;padding:16px;margin:24px 0}.quiz summary{cursor:pointer;font-weight:700;color:var(--green)}.quiz p{margin-top:8px}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid var(--border);padding:8px 12px;text-align:left;font-size:.85rem}th{background:var(--surface)}
+</style>
+</head>
+<body>
+<div class="container">
+<a class="back" href="index.html">&larr; 目次に戻る</a>
+<h1>#53 SSE + rAF によるTBT改善</h1>
+<p class="meta">影響指標: TBT, INP | 難易度: 上級</p>
+
+<h2>1. 問題の全体像</h2>
+<p>CaX の Crok AI チャットは SSE (Server-Sent Events) でストリーミング応答を受け取ります。SSE の各メッセージで React の state を更新し、Markdown をパースして再描画していました。</p>
+
+<div class="diagram">
+問題: SSEメッセージが高頻度で来ると...
+
+SSE: ─msg─msg─msg─msg─msg─msg─msg─msg─msg─msg─▶ (数十ms間隔)
+     ↓    ↓    ↓    ↓    ↓    ↓    ↓    ↓
+React: setState→render→setState→render→setState→render...
+       ↓        ↓        ↓
+DOM:   update   update   update   ← 毎回 Markdown パース + DOM更新
+       ████████████████████████████  = Long Task (TBT増加)
+
+理想: 画面更新は 16ms (60fps) に1回で十分
+</div>
+
+<h2>2. 修正1: requestAnimationFrame バッチング (SSE)</h2>
+
+<div class="box bad">
+  <div class="box-title">Before: メッセージごとに setState</div>
+<pre>eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  const newContent = options.onMessage(data, contentRef.current);
+  contentRef.current = newContent;
+  setContent(newContent);  // ← 毎メッセージで React 再描画
+};</pre>
+</div>
+
+<div class="box good">
+  <div class="box-title">After: rAF でバッチ化</div>
+<pre>eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  const newContent = options.onMessage(data, contentRef.current);
+  contentRef.current = newContent;  // ref に最新値を保存
+
+  // rAF でバッチ化: 16ms間に複数メッセージが来ても描画は1回
+  cancelAnimationFrame(rafIdRef.current);
+  rafIdRef.current = requestAnimationFrame(() => {
+    setContent(contentRef.current);
+  });
+};</pre>
+</div>
+
+<h3>なぜこれが効くのか</h3>
+<div class="diagram">
+Before:
+SSE: ─msg1──msg2──msg3──msg4──────────────msg5──▶
+      ↓      ↓      ↓      ↓              ↓
+React: [render][render][render][render]     [render]
+       ↑ 4回レンダリング（16ms以内に4回は無駄）
+
+After (rAF バッチング):
+SSE: ─msg1──msg2──msg3──msg4──────────────msg5──▶
+      ↓cancel ↓cancel ↓cancel ↓            ↓
+rAF:                           [render]     [render]
+       ↑ 1回だけレンダリング（最新値を使う）
+</div>
+
+<p><code>requestAnimationFrame</code> は次の画面描画タイミング（約16ms後）にコールバックを予約します。<code>cancelAnimationFrame</code> で前の予約をキャンセルすれば、16ms間に複数メッセージが来ても描画は1回で済みます。</p>
+
+<h2>3. 修正2: ストリーミング中は Markdown パースをスキップ</h2>
+
+<div class="box bad">
+  <div class="box-title">Before: 毎回 Markdown → React 変換</div>
+<pre>&lt;Suspense fallback={&lt;p&gt;{content}&lt;/p&gt;}&gt;
+  &lt;ChatMessageMarkdown content={content} /&gt;
+  {/* ← ストリーミング中も毎回 react-markdown + rehype-katex を実行 */}
+&lt;/Suspense&gt;</pre>
+</div>
+
+<div class="box good">
+  <div class="box-title">After: ストリーミング中はプレーンテキスト</div>
+<pre>{isStreaming ? (
+  // ストリーミング中: 軽い pre で表示（Markdown パースなし）
+  &lt;p className="whitespace-pre-wrap"&gt;{content}&lt;/p&gt;
+) : (
+  // 完了後: リッチな Markdown 表示
+  &lt;Suspense fallback={&lt;p&gt;{content}&lt;/p&gt;}&gt;
+    &lt;ChatMessageMarkdown content={content} /&gt;
+  &lt;/Suspense&gt;
+)}</pre>
+</div>
+
+<h2>4. 修正3: MutationObserver のスコープ限定 (DM)</h2>
+
+<div class="box bad">
+  <div class="box-title">Before: document.body 全体を監視</div>
+<pre>const observer = new MutationObserver(() => {
+  scrollToBottom();  // スクロール位置を最下部に
+});
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+  characterData: true,  // ← body 配下の全テキスト変更で発火
+});</pre>
+</div>
+
+<div class="box good">
+  <div class="box-title">After: メッセージリストだけ監視 + rAF</div>
+<pre>const el = messageListRef.current;
+
+let rafId = 0;
+const observer = new MutationObserver(() => {
+  cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(scrollToBottom);
+});
+observer.observe(el, {
+  childList: true,     // 子要素の追加/削除のみ
+  subtree: true,
+  // characterData は不要（テキスト変更を監視しない）
+});</pre>
+</div>
+
+<h3>なぜ body 全体の監視が危険か</h3>
+<ul>
+  <li><code>document.body</code> に <code>subtree: true</code> + <code>characterData: true</code> = ページ上のあらゆるテキスト変更で発火</li>
+  <li>React の仮想DOM更新、他コンポーネントの state 変更、ツールチップ表示...全てがトリガーになる</li>
+  <li>各発火で <code>scrollToBottom()</code> が即座に実行され、DOM レイアウト強制（forced reflow）が発生</li>
+</ul>
+
+<h2>5. まとめ: 高頻度イベントの3つの対策パターン</h2>
+<table>
+  <tr><th>パターン</th><th>手法</th><th>適用場面</th></tr>
+  <tr><td>rAF バッチング</td><td><code>cancelAnimationFrame</code> + <code>requestAnimationFrame</code></td><td>SSE、WebSocket、scroll、resize</td></tr>
+  <tr><td>描画の簡略化</td><td>ストリーミング中は軽い表示、完了後にリッチ表示</td><td>チャット、ログビューア</td></tr>
+  <tr><td>監視スコープの限定</td><td>MutationObserver の対象を必要最小限に</td><td>自動スクロール、DOM変更検知</td></tr>
+</table>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: debounce と rAF バッチングの違いは？</summary>
+    <p><strong>debounce</strong>: 最後のイベントから N ms 経過後に実行。「入力が止まったら」のパターン。setTimeout ベース。</p>
+    <p><strong>rAF バッチング</strong>: 次の画面描画タイミングで実行。「表示できるタイミングで最新値を」のパターン。ブラウザの描画サイクルに同期。</p>
+    <p>SSE ストリーミングでは rAF の方が適切です。debounce だと最後のメッセージから Nms 待つ間に画面が固まって見え、rAF なら16ms(60fps)ごとに確実に更新されます。</p>
+  </details>
+</div>
+
+</div>
+</body>
+</html>

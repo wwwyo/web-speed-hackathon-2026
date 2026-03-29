@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#59 react-helmet の脱却 - WSH学習</title>
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922}
+  *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.7}.container{max-width:800px;margin:0 auto;padding:40px 24px}a{color:var(--accent)}.back{display:inline-block;margin-bottom:24px;color:var(--muted);text-decoration:none;font-size:.9rem}.back:hover{color:var(--accent)}h1{font-size:1.8rem;margin-bottom:8px}.meta{color:var(--muted);margin-bottom:32px}h2{font-size:1.3rem;margin:32px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;margin:20px 0 8px}p,li{margin-bottom:8px}ul,ol{padding-left:24px}pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:16px 0;font-size:.85rem;line-height:1.5}code{font-family:'SF Mono',Consolas,monospace;font-size:.85em}.box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0}.box-title{font-weight:700;margin-bottom:8px}.box.warn{border-color:var(--orange)}.box.good{border-color:var(--green)}.box.bad{border-color:var(--red)}.diagram{background:#1a1e2e;border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;font-family:monospace;font-size:.85rem;line-height:1.8;white-space:pre;overflow-x:auto}.quiz{background:#1a2a1a;border:1px solid var(--green);border-radius:8px;padding:16px;margin:24px 0}.quiz summary{cursor:pointer;font-weight:700;color:var(--green)}.quiz p{margin-top:8px}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid var(--border);padding:8px 12px;text-align:left;font-size:.85rem}th{background:var(--surface)}
+</style>
+</head>
+<body>
+<div class="container">
+<a class="back" href="index.html">&larr; 目次に戻る</a>
+<h1>#59 react-helmet の脱却</h1>
+<p class="meta">影響指標: Bundle Size | 難易度: 基礎</p>
+
+<h2>1. react-helmet とは何だったか</h2>
+<p><code>react-helmet</code> は React コンポーネントから <code>&lt;head&gt;</code> 内の <code>&lt;title&gt;</code>、<code>&lt;meta&gt;</code>、<code>&lt;link&gt;</code> 等を宣言的に管理するライブラリです。</p>
+
+<pre>
+// react-helmet の使い方
+import { Helmet } from "react-helmet";
+
+function MyPage() {
+  return (
+    &lt;&gt;
+      &lt;Helmet&gt;
+        &lt;title&gt;ページタイトル&lt;/title&gt;
+        &lt;meta name="description" content="説明" /&gt;
+      &lt;/Helmet&gt;
+      &lt;div&gt;ページの中身&lt;/div&gt;
+    &lt;/&gt;
+  );
+}
+</pre>
+
+<h2>2. React 19 でネイティブサポートされた</h2>
+<p>React 19 から、JSXの中で直接 <code>&lt;title&gt;</code>、<code>&lt;meta&gt;</code>、<code>&lt;link&gt;</code> を返すと、React が自動的に <code>&lt;head&gt;</code> に配置してくれます（hoisting）。</p>
+
+<div class="diagram">
+React 19 の Document Metadata:
+
+function MyPage() {
+  return (
+    &lt;&gt;
+      &lt;title&gt;ページタイトル&lt;/title&gt;     ← React が自動的に &lt;head&gt; へ移動
+      &lt;meta name="description" .../&gt;  ← 同様
+      &lt;div&gt;ページの中身&lt;/div&gt;
+    &lt;/&gt;
+  );
+}
+
+レンダリング結果:
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;ページタイトル&lt;/title&gt;     ← ここに配置される
+    &lt;meta name="description" .../&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;div&gt;ページの中身&lt;/div&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</div>
+
+<h2>3. WSH 2026 での移行</h2>
+
+<div class="box bad">
+  <div class="box-title">Before: react-helmet</div>
+<pre>// 各コンテナで Helmet を使用
+import { Helmet } from "react-helmet";
+
+const TimelineContainer = () => {
+  return (
+    &lt;&gt;
+      &lt;Helmet&gt;&lt;title&gt;CaX&lt;/title&gt;&lt;/Helmet&gt;
+      &lt;TimelinePage ... /&gt;
+    &lt;/&gt;
+  );
+};
+
+// AppContainer で HelmetProvider をラップ
+import { HelmetProvider } from "react-helmet-async";
+&lt;HelmetProvider&gt;
+  &lt;App /&gt;
+&lt;/HelmetProvider&gt;</pre>
+</div>
+
+<div class="box good">
+  <div class="box-title">After: PageTitle コンポーネント</div>
+<pre>// 薄いラッパー: &lt;title&gt; を返しつつ document.title も同期
+const PageTitle = ({ title }: { title: string }) => {
+  useEffect(() => {
+    document.title = title;  // SPA遷移時にも確実に更新
+  }, [title]);
+  return &lt;title&gt;{title}&lt;/title&gt;;
+};
+
+// 各コンテナで使用
+const TimelineContainer = () => {
+  return (
+    &lt;&gt;
+      &lt;PageTitle title="CaX" /&gt;
+      &lt;TimelinePage ... /&gt;
+    &lt;/&gt;
+  );
+};
+
+// HelmetProvider は不要！</pre>
+</div>
+
+<h2>4. なぜ document.title も設定するのか</h2>
+<p>React 19 の <code>&lt;title&gt;</code> hoisting は初回レンダリングでは動きますが、SPA でクライアントサイドルーティングする場合、非同期 fetch 後にタイトルが確定するケースがあります。</p>
+
+<div class="box warn">
+  <div class="box-title">SPAでの落とし穴</div>
+<pre>const PostContainer = () => {
+  const { data: post } = useFetch(`/api/v1/posts/${id}`);
+
+  // data が null の間、title が空になる
+  return (
+    &lt;&gt;
+      &lt;title&gt;{post?.text ?? ""}&lt;/title&gt;   {/* ← fetch完了前は空 */}
+      &lt;PostPage post={post} /&gt;
+    &lt;/&gt;
+  );
+};</pre>
+</div>
+
+<p><code>document.title</code> を <code>useEffect</code> で同期すれば、fetch 完了後に確実にタイトルが更新されます。</p>
+
+<h2>5. 削除できたもの</h2>
+<table>
+  <tr><th>パッケージ</th><th>サイズ</th></tr>
+  <tr><td><code>react-helmet</code></td><td>~10KB (minified)</td></tr>
+  <tr><td><code>react-helmet-async</code></td><td>~5KB</td></tr>
+  <tr><td><code>HelmetProvider</code> ラッパー</td><td>コンテキスト生成のオーバーヘッド</td></tr>
+</table>
+
+<p>代わりに追加したのは PageTitle コンポーネント（15行）だけ。外部依存ゼロです。</p>
+
+<h2>6. React 19 で直接使える head 要素</h2>
+<table>
+  <tr><th>要素</th><th>React 19 で hoisting</th><th>備考</th></tr>
+  <tr><td><code>&lt;title&gt;</code></td><td>対応</td><td>最後にレンダーされたものが勝つ</td></tr>
+  <tr><td><code>&lt;meta&gt;</code></td><td>対応</td><td>name/property で重複排除</td></tr>
+  <tr><td><code>&lt;link&gt;</code></td><td>対応</td><td>rel="stylesheet" はレンダーブロッキング扱い</td></tr>
+  <tr><td><code>&lt;style&gt;</code></td><td>対応</td><td>precedence で順序制御</td></tr>
+  <tr><td><code>&lt;script&gt;</code></td><td>対応</td><td>async は非ブロッキング</td></tr>
+</table>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: react-helmet-async と react-helmet の違いは？</summary>
+    <p><code>react-helmet</code> は内部で副作用（直接 document.head を操作）を持ち、SSR で問題がありました。<code>react-helmet-async</code> はこれを修正し、React 18 の Concurrent Mode でも安全に動作するように Provider パターンを導入したフォークです。React 19 のネイティブ対応により、どちらも不要になりました。</p>
+  </details>
+</div>
+
+</div>
+</body>
+</html>

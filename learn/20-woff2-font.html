@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#20 WOFF2 + font-display - WSH学習</title>
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922}
+  *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.7}.container{max-width:800px;margin:0 auto;padding:40px 24px}a{color:var(--accent)}.back{display:inline-block;margin-bottom:24px;color:var(--muted);text-decoration:none;font-size:.9rem}.back:hover{color:var(--accent)}h1{font-size:1.8rem;margin-bottom:8px}.meta{color:var(--muted);margin-bottom:32px}h2{font-size:1.3rem;margin:32px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;margin:20px 0 8px}p,li{margin-bottom:8px}ul,ol{padding-left:24px}pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:16px 0;font-size:.85rem;line-height:1.5}code{font-family:'SF Mono',Consolas,monospace;font-size:.85em}.box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0}.box-title{font-weight:700;margin-bottom:8px}.box.warn{border-color:var(--orange)}.box.good{border-color:var(--green)}.box.bad{border-color:var(--red)}.diagram{background:#1a1e2e;border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;font-family:monospace;font-size:.85rem;line-height:1.8;white-space:pre;overflow-x:auto}.quiz{background:#1a2a1a;border:1px solid var(--green);border-radius:8px;padding:16px;margin:24px 0}.quiz summary{cursor:pointer;font-weight:700;color:var(--green)}.quiz p{margin-top:8px}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid var(--border);padding:8px 12px;text-align:left;font-size:.85rem}th{background:var(--surface)}
+</style>
+</head>
+<body>
+<div class="container">
+<a class="back" href="index.html">&larr; 目次に戻る</a>
+<h1>#20 WOFF2 + font-display</h1>
+<p class="meta">影響指標: FCP, LCP | 難易度: 基礎</p>
+
+<h2>1. フォント形式の比較</h2>
+<table>
+  <tr><th>形式</th><th>圧縮</th><th>サイズ目安</th><th>ブラウザ対応</th></tr>
+  <tr><td>TTF/OTF</td><td>なし</td><td>6.3MB</td><td>全ブラウザ</td></tr>
+  <tr><td>WOFF</td><td>zlib (gzip相当)</td><td>~3MB</td><td>全ブラウザ</td></tr>
+  <tr><td><strong>WOFF2</strong></td><td><strong>Brotli</strong></td><td><strong>~2MB (さらにサブセットで24KB)</strong></td><td>全モダンブラウザ</td></tr>
+</table>
+
+<p>WSH 2026 では OTF 13MB (2ファイル) → WOFF2 46KB に削減。<strong>99.65%のサイズ削減</strong>。</p>
+
+<h2>2. サブセット化</h2>
+<p>フルフォントには数千〜数万のグリフ（文字の形状データ）が含まれます。実際に使う文字だけを抽出することを<strong>サブセット化</strong>と呼びます。</p>
+
+<pre>
+# pyftsubset (fonttools) を使ったサブセット + WOFF2 変換
+pip install fonttools brotli
+
+# 使用する文字を指定してサブセット化
+pyftsubset input.otf \
+  --text="利用規約第一条本サービスについて..." \
+  --flavor=woff2 \
+  --output-file=output.woff2
+
+# または Unicode 範囲で指定
+pyftsubset input.otf \
+  --unicodes="U+3000-30FF,U+4E00-9FFF" \
+  --flavor=woff2 \
+  --output-file=output.woff2
+</pre>
+
+<div class="box warn">
+  <div class="box-title">サブセット化の注意点</div>
+  <p>サブセット化すると、含まれない文字はフォールバックフォントで表示されます。WSH 2026 では利用規約ページの見出し96文字だけに絞りましたが、動的に変わるテキストに使うフォントのサブセット化は慎重に行う必要があります。</p>
+</div>
+
+<h2>3. font-display の4つの値</h2>
+<div class="diagram">
+font-display のタイムライン:
+
+       block period     swap period      failure
+──────|───────────────|────────────────|───────────▶
+      └ フォント未読込 ┘
+
+block:  ████████████████████████████████████████████
+        テキスト非表示   │ カスタムフォント表示
+        (最大3秒)        │
+
+swap:   █               │ フォールバック表示 → カスタムフォント
+        (極短い block)   │ (FOUT: Flash of Unstyled Text)
+
+fallback: ██████          │ フォールバック表示 → 条件付き切替
+          (短い block)    │ (swap period が短い)
+
+optional: ██████          │ フォールバック表示（切替なし）
+          (短い block)    │ (次回アクセスで使用)
+</div>
+
+<table>
+  <tr><th>値</th><th>動作</th><th>使いどころ</th></tr>
+  <tr><td><code>block</code></td><td>フォント読込まで最大3秒テキストを非表示 (FOIT)</td><td>アイコンフォント（文字化けを避けたい）</td></tr>
+  <tr><td><code>swap</code></td><td>即座にフォールバック表示、後からカスタムフォントに切替 (FOUT)</td><td>本文テキスト、見出し</td></tr>
+  <tr><td><code>fallback</code></td><td>100ms非表示、その後フォールバック。短い swap 期間</td><td>重要だが FOUT を最小限にしたいテキスト</td></tr>
+  <tr><td><code>optional</code></td><td>100ms以内に読み込めなければフォールバックのまま。次回以降で使用</td><td>装飾的なフォント</td></tr>
+</table>
+
+<h2>4. WSH 2026 での変更</h2>
+
+<div class="box bad">
+  <div class="box-title">Before</div>
+<pre>@font-face {
+  font-family: "Rei no Are Mincho";
+  font-display: block;  /* ← 最大3秒テキスト非表示！ */
+  src: url(/fonts/ReiNoAreMincho-Regular.otf) format("opentype");
+  /* 6.3MB の OTF をダウンロード */
+}</pre>
+</div>
+
+<div class="box good">
+  <div class="box-title">After</div>
+<pre>@font-face {
+  font-family: "Rei no Are Mincho";
+  font-display: swap;   /* ← 即座にフォールバック表示 */
+  src: url(/fonts/ReiNoAreMincho-Regular.woff2) format("woff2");
+  /* 24KB の WOFF2 をダウンロード */
+}</pre>
+</div>
+
+<h2>5. FOIT vs FOUT</h2>
+<ul>
+  <li><strong>FOIT (Flash of Invisible Text)</strong>: <code>font-display: block</code> のデフォルト動作。フォント読込中はテキストが見えない。ユーザーは空白のページだと思う</li>
+  <li><strong>FOUT (Flash of Unstyled Text)</strong>: <code>font-display: swap</code> の動作。フォールバックフォントで先に表示し、カスタムフォントが来たら切り替える。一瞬フォントが変わるが、テキストは常に読める</li>
+</ul>
+<p>パフォーマンス指標（FCP/LCP）の観点では、<strong>テキストが早く表示される swap が圧倒的に有利</strong>です。</p>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: WOFF2 を gzip 圧縮する意味はある？</summary>
+    <p><strong>ありません</strong>。WOFF2 は内部で Brotli 圧縮されているため、さらに gzip しても数バイト増えるか同程度です。Express の compression ミドルウェアはデフォルトで WOFF2 の Content-Type を圧縮対象外にしています。</p>
+  </details>
+</div>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: font-display: optional はいつ使う？</summary>
+    <p>装飾的なフォントで、FOUT（フォント切替時のちらつき）が気になる場合に使います。初回訪問ではフォールバックのまま表示し、バックグラウンドでフォントをキャッシュ。2回目以降の訪問でカスタムフォントが使われます。CLS（Cumulative Layout Shift）が0になるメリットがあります。</p>
+  </details>
+</div>
+
+</div>
+</body>
+</html>

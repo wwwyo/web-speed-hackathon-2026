@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#3 HTTPヘッダーとキャッシュ設計 - WSH学習</title>
+<style>
+  :root { --bg:#0d1117; --surface:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --green:#3fb950; --red:#f85149; --orange:#d29922; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+  .container{max-width:800px;margin:0 auto;padding:40px 24px}
+  a{color:var(--accent)}
+  .back{display:inline-block;margin-bottom:24px;color:var(--muted);text-decoration:none;font-size:.9rem}
+  .back:hover{color:var(--accent)}
+  h1{font-size:1.8rem;margin-bottom:8px}
+  .meta{color:var(--muted);margin-bottom:32px}
+  h2{font-size:1.3rem;margin:32px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+  h3{font-size:1.1rem;margin:20px 0 8px}
+  p,li{margin-bottom:8px}
+  ul,ol{padding-left:24px}
+  pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:16px 0;font-size:.85rem;line-height:1.5}
+  code{font-family:'SF Mono',Consolas,monospace;font-size:.85em}
+  .box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0}
+  .box-title{font-weight:700;margin-bottom:8px}
+  .box.warn{border-color:var(--orange)}
+  .box.good{border-color:var(--green)}
+  .box.bad{border-color:var(--red)}
+  .diagram{background:#1a1e2e;border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;font-family:monospace;font-size:.85rem;line-height:1.8;white-space:pre;overflow-x:auto}
+  .quiz{background:#1a2a1a;border:1px solid var(--green);border-radius:8px;padding:16px;margin:24px 0}
+  .quiz summary{cursor:pointer;font-weight:700;color:var(--green)}
+  .quiz p{margin-top:8px}
+  table{width:100%;border-collapse:collapse;margin:16px 0}
+  th,td{border:1px solid var(--border);padding:8px 12px;text-align:left;font-size:.85rem}
+  th{background:var(--surface)}
+</style>
+</head>
+<body>
+<div class="container">
+<a class="back" href="index.html">&larr; 目次に戻る</a>
+<h1>#3 HTTPヘッダーとキャッシュ設計</h1>
+<p class="meta">影響指標: FCP, LCP | 難易度: 基礎</p>
+
+<h2>1. なぜキャッシュが重要か</h2>
+<p>ブラウザがリソースをリクエストするたびにサーバーまで往復すると、ネットワーク遅延（RTT）分だけ表示が遅れます。キャッシュを使えば2回目以降のアクセスでこの往復を省略でき、FCP/LCPが大幅に改善します。</p>
+
+<div class="diagram">
+キャッシュなし:
+Browser ──GET /app.js──▶ Server ──200 + body──▶ Browser
+                        (100ms RTT + 50ms処理 = 150ms)
+
+キャッシュあり (immutable):
+Browser ──(ローカルキャッシュから取得)──▶ 即座に使用
+                        (0ms)
+
+キャッシュあり (ETag):
+Browser ──If-None-Match: "abc"──▶ Server ──304 Not Modified──▶ Browser
+                        (100ms RTT、bodyなし = 100ms)
+</div>
+
+<h2>2. Cache-Control ヘッダーの主要ディレクティブ</h2>
+<table>
+  <tr><th>ディレクティブ</th><th>意味</th><th>使いどころ</th></tr>
+  <tr><td><code>no-store</code></td><td>キャッシュ禁止。一切保存しない</td><td>個人情報を含むAPIレスポンス</td></tr>
+  <tr><td><code>no-cache</code></td><td>キャッシュするが、毎回サーバーに再検証する</td><td>HTML（最新を返したいが、304は使いたい）</td></tr>
+  <tr><td><code>max-age=N</code></td><td>N秒間はキャッシュを新鮮とみなす</td><td>API、短期キャッシュ</td></tr>
+  <tr><td><code>immutable</code></td><td>リソースが変わらないことを宣言（再検証もしない）</td><td>ハッシュ付きファイル名の静的アセット</td></tr>
+  <tr><td><code>public</code></td><td>CDNなど共有キャッシュにも保存OK</td><td>全ユーザー共通のリソース</td></tr>
+</table>
+
+<h2>3. WSH 2026 で何をしたか</h2>
+<p>課題アプリには2つの問題がありました：</p>
+
+<div class="box bad">
+  <div class="box-title">Before: 意図的にキャッシュを殺していた</div>
+<pre>// app.ts - 全レスポンスにキャッシュ無効ヘッダーを付与
+app.use((_req, res, next) => {
+  res.header({
+    "Cache-Control": "max-age=0, no-transform",
+    "Connection": "close",
+  });
+  return next();
+});
+
+// static.ts - ETag/LastModified も無効化
+serveStatic(PUBLIC_PATH, {
+  etag: false,
+  lastModified: false,
+});</pre>
+</div>
+
+<div class="box good">
+  <div class="box-title">After: 適切なキャッシュ戦略に変更</div>
+<pre>// app.ts - グローバルミドルウェアを削除（各ルートで個別設定）
+
+// static.ts - 静的ファイルに長期キャッシュ
+serveStatic(UPLOAD_PATH, { maxAge: "1d" });   // ユーザーアップロード
+serveStatic(PUBLIC_PATH, { maxAge: "7d" });   // 公開アセット
+serveStatic(CLIENT_DIST_PATH, { maxAge: "7d" }); // ビルド出力
+// etag, lastModified はデフォルト true に戻る</pre>
+</div>
+
+<h2>4. キャッシュ設計のベストプラクティス</h2>
+<div class="diagram">
+リソース種別ごとのキャッシュ戦略:
+
+HTML:           Cache-Control: no-cache
+                → 毎回サーバー確認、ETag で 304 を狙う
+
+ハッシュ付きJS/CSS: Cache-Control: public, max-age=31536000, immutable
+(app.a1b2c3.js)  → 1年間キャッシュ、ファイル名が変われば別リソース
+
+API:            Cache-Control: no-cache  or  max-age=60
+                → ケースバイケース
+
+画像/フォント:    Cache-Control: public, max-age=86400
+                → 1日キャッシュ（変更頻度による）
+</div>
+
+<h3>ポイント: immutable + ハッシュ付きファイル名</h3>
+<p>Rspack/Webpack は出力ファイル名にコンテンツハッシュを含められます（例: <code>app.a1b2c3.js</code>）。コードが変われば新しいハッシュが付くので、古いキャッシュが残っていても問題ありません。この組み合わせが最強のキャッシュ戦略です。</p>
+
+<h2>5. ETag と Last-Modified</h2>
+<p><code>ETag</code> はリソースの「指紋」（ハッシュ値）、<code>Last-Modified</code> は最終更新日時です。ブラウザは次回リクエスト時にこれらを送り、サーバーは変更がなければ <code>304 Not Modified</code>（ボディなし）を返します。</p>
+
+<div class="box warn">
+  <div class="box-title">WSH の罠: etag: false, lastModified: false</div>
+  <p>Express の serveStatic でこれらを false にすると、304 応答が使えなくなり、毎回フルボディを返すことになります。WSH では意図的にこれが設定されていました。</p>
+</div>
+
+<h2>6. Connection: close の問題</h2>
+<p><code>Connection: close</code> は HTTP/1.1 のKeep-Alive（接続の再利用）を無効にします。リソースごとに新規TCP接続が必要になり、TLSハンドシェイクのコストが毎回かかります。HTTP/2 では多重化されるため影響は少ないですが、HTTP/1.1 環境では致命的です。</p>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: max-age=0 と no-cache の違いは？</summary>
+    <p><strong>max-age=0</strong>: キャッシュの有効期限が0秒。ブラウザはキャッシュを持つが、毎回期限切れとして再検証する。</p>
+    <p><strong>no-cache</strong>: キャッシュを保存するが、使用前に必ずサーバーに再検証する。</p>
+    <p>実質的にはほぼ同じ動作ですが、<code>no-cache</code> の方が意図が明確です。<code>max-age=0, no-transform</code> のように複数ディレクティブを組み合わせると、意図しない挙動になることがあります。</p>
+  </details>
+</div>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: immutable を付けるべきでないファイルは？</summary>
+    <p><strong>HTMLファイル</strong>。HTMLにimmutableを付けると、HTMLが更新されてもブラウザは古いHTMLを使い続け、新しいJSやCSSへの参照が更新されません。HTMLは必ず <code>no-cache</code> にし、JSやCSSのファイル名にハッシュを含めてimmutableにするのが正解です。</p>
+  </details>
+</div>
+
+</div>
+</body>
+</html>

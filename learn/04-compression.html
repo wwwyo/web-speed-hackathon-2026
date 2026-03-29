@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#4 レスポンス圧縮 - WSH学習</title>
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922}
+  *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.7}.container{max-width:800px;margin:0 auto;padding:40px 24px}a{color:var(--accent)}.back{display:inline-block;margin-bottom:24px;color:var(--muted);text-decoration:none;font-size:.9rem}.back:hover{color:var(--accent)}h1{font-size:1.8rem;margin-bottom:8px}.meta{color:var(--muted);margin-bottom:32px}h2{font-size:1.3rem;margin:32px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;margin:20px 0 8px}p,li{margin-bottom:8px}ul,ol{padding-left:24px}pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:16px 0;font-size:.85rem;line-height:1.5}code{font-family:'SF Mono',Consolas,monospace;font-size:.85em}.box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0}.box-title{font-weight:700;margin-bottom:8px}.box.warn{border-color:var(--orange)}.box.good{border-color:var(--green)}.box.bad{border-color:var(--red)}.diagram{background:#1a1e2e;border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;font-family:monospace;font-size:.85rem;line-height:1.8;white-space:pre;overflow-x:auto}.quiz{background:#1a2a1a;border:1px solid var(--green);border-radius:8px;padding:16px;margin:24px 0}.quiz summary{cursor:pointer;font-weight:700;color:var(--green)}.quiz p{margin-top:8px}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid var(--border);padding:8px 12px;text-align:left;font-size:.85rem}th{background:var(--surface)}
+</style>
+</head>
+<body>
+<div class="container">
+<a class="back" href="index.html">&larr; 目次に戻る</a>
+<h1>#4 レスポンス圧縮</h1>
+<p class="meta">影響指標: FCP, LCP (転送量削減) | 難易度: 基礎</p>
+
+<h2>1. HTTPレスポンス圧縮とは</h2>
+<p>サーバーがレスポンスボディを gzip や Brotli で圧縮して送り、ブラウザが展開する仕組みです。テキストベースのリソース（HTML, JS, CSS, JSON）は70-90%のサイズ削減が可能です。</p>
+
+<div class="diagram">
+圧縮なし:
+Browser ──GET /app.js──▶ Server
+Browser ◀──200 (500KB body)── Server
+転送量: 500KB
+
+gzip 圧縮:
+Browser ──GET /app.js──▶ Server
+         Accept-Encoding: gzip
+Browser ◀──200 (120KB body)── Server
+           Content-Encoding: gzip
+転送量: 120KB (76%削減!)
+</div>
+
+<h2>2. 圧縮のネゴシエーション</h2>
+<p>ブラウザとサーバーは以下のように圧縮方式を合意します:</p>
+<ol>
+  <li>ブラウザが <code>Accept-Encoding: gzip, deflate, br</code> ヘッダーを送る</li>
+  <li>サーバーが対応する圧縮方式でボディを圧縮</li>
+  <li>サーバーが <code>Content-Encoding: gzip</code> ヘッダーを付けて返す</li>
+  <li>ブラウザが自動的に展開して使用</li>
+</ol>
+
+<h2>3. 圧縮アルゴリズムの比較</h2>
+<table>
+  <tr><th>アルゴリズム</th><th>圧縮率</th><th>速度</th><th>ブラウザ対応</th><th>備考</th></tr>
+  <tr><td>gzip</td><td>良い</td><td>速い</td><td>全ブラウザ</td><td>最も無難な選択</td></tr>
+  <tr><td>Brotli (br)</td><td>最良 (gzip比 15-25%改善)</td><td>圧縮は遅い</td><td>Chrome, Firefox, Safari, Edge</td><td>HTTPS必須</td></tr>
+  <tr><td>zstd</td><td>良い</td><td>最速</td><td>Chrome 123+</td><td>まだ普及途上</td></tr>
+</table>
+
+<h2>4. Express での実装</h2>
+<p>WSH 2026 では <code>compression</code> ミドルウェアを1行追加しただけです:</p>
+
+<div class="box good">
+  <div class="box-title">実装（たった3行の変更）</div>
+<pre>import compression from "compression";
+
+const app = Express();
+app.use(compression());  // ← これだけ！
+app.use(sessionMiddleware);
+// ...以降のミドルウェア</pre>
+</div>
+
+<h3>compression ミドルウェアの内部動作</h3>
+<ol>
+  <li><code>Accept-Encoding</code> ヘッダーを確認</li>
+  <li>レスポンスの <code>Content-Type</code> が圧縮対象か判定（テキスト系のみ、画像・動画は除外）</li>
+  <li>ボディサイズが閾値（デフォルト1KB）以上なら圧縮</li>
+  <li>Node.js の <code>zlib</code> モジュールで gzip 圧縮を実行</li>
+  <li><code>Content-Encoding: gzip</code> と <code>Vary: Accept-Encoding</code> を付与</li>
+</ol>
+
+<h2>5. 圧縮すべきもの/すべきでないもの</h2>
+<table>
+  <tr><th>圧縮すべき</th><th>圧縮不要</th></tr>
+  <tr><td>HTML, CSS, JavaScript</td><td>JPEG, PNG, WebP (既に圧縮済み)</td></tr>
+  <tr><td>JSON, XML, SVG</td><td>MP4, WebM (既に圧縮済み)</td></tr>
+  <tr><td>フォント (WOFF2以外)</td><td>WOFF2 (既にBrotli圧縮済み)</td></tr>
+  <tr><td>ソースマップ</td><td>小さいファイル (1KB未満)</td></tr>
+</table>
+
+<div class="box warn">
+  <div class="box-title">注意: 圧縮のCPUコスト</div>
+  <p>動的圧縮はリクエストのたびにCPUを使います。静的ファイルは事前圧縮（ビルド時に .gz/.br ファイルを生成）する方が効率的です。WSH のような短時間競技では動的圧縮で十分ですが、本番サービスでは CDN + 事前圧縮が理想です。</p>
+</div>
+
+<h2>6. 事前圧縮のアプローチ</h2>
+<pre>
+# ビルド時に Brotli と gzip の事前圧縮ファイルを生成
+find dist -type f \( -name "*.js" -o -name "*.css" -o -name "*.html" \) \
+  -exec brotli {} \; -exec gzip -k {} \;
+
+# → dist/app.js, dist/app.js.br, dist/app.js.gz が生成される
+</pre>
+<p>Express の <code>express-static-gzip</code> ミドルウェアを使うと、ブラウザの Accept-Encoding に応じて .br → .gz → 元ファイルの順に返せます。</p>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: Vary: Accept-Encoding はなぜ必要？</summary>
+    <p>CDN やプロキシキャッシュが、同じURLでも Accept-Encoding が異なるリクエストを区別してキャッシュするためです。これがないと、gzip対応ブラウザにキャッシュされた非圧縮レスポンスが返されたり、その逆が起きます。</p>
+  </details>
+</div>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: WOFF2 フォントを gzip 圧縮するとどうなる？</summary>
+    <p>WOFF2 は内部で Brotli 圧縮済みなので、さらに gzip しても<strong>ほとんどサイズが変わらない</strong>（むしろ微増することも）。二重圧縮のCPUコストだけが無駄になります。compression ミドルウェアはデフォルトで Content-Type をチェックし、<code>application/font-woff2</code> は圧縮対象外にしています。</p>
+  </details>
+</div>
+
+</div>
+</body>
+</html>

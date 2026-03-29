@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#47 メインスレッドブロック - WSH学習</title>
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922}
+  *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.7}.container{max-width:800px;margin:0 auto;padding:40px 24px}a{color:var(--accent)}.back{display:inline-block;margin-bottom:24px;color:var(--muted);text-decoration:none;font-size:.9rem}.back:hover{color:var(--accent)}h1{font-size:1.8rem;margin-bottom:8px}.meta{color:var(--muted);margin-bottom:32px}h2{font-size:1.3rem;margin:32px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;margin:20px 0 8px}p,li{margin-bottom:8px}ul,ol{padding-left:24px}pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:16px 0;font-size:.85rem;line-height:1.5}code{font-family:'SF Mono',Consolas,monospace;font-size:.85em}.box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0}.box-title{font-weight:700;margin-bottom:8px}.box.warn{border-color:var(--orange)}.box.good{border-color:var(--green)}.box.bad{border-color:var(--red)}.diagram{background:#1a1e2e;border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;font-family:monospace;font-size:.85rem;line-height:1.8;white-space:pre;overflow-x:auto}.quiz{background:#1a2a1a;border:1px solid var(--green);border-radius:8px;padding:16px;margin:24px 0}.quiz summary{cursor:pointer;font-weight:700;color:var(--green)}.quiz p{margin-top:8px}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid var(--border);padding:8px 12px;text-align:left;font-size:.85rem}th{background:var(--surface)}
+</style>
+</head>
+<body>
+<div class="container">
+<a class="back" href="index.html">&larr; 目次に戻る</a>
+<h1>#47 メインスレッドブロック</h1>
+<p class="meta">影響指標: TBT, INP | 難易度: 中級</p>
+
+<h2>1. Long Task とは</h2>
+<p>ブラウザのメインスレッドで50ms以上かかるタスクを <strong>Long Task</strong> と呼びます。Long Task の間、ユーザーのクリックやキー入力への応答が遅れます。</p>
+
+<div class="diagram">
+メインスレッドのタイムライン:
+
+良い状態:
+──[5ms]──[3ms]──[10ms]──[2ms]──[8ms]──▶
+  ↑ ユーザー操作に即座に応答可能
+
+悪い状態 (Long Task):
+──[████████████ 200ms ████████████]──[3ms]──▶
+  ↑ この200msの間、一切の操作が無視される
+  Lighthouse はこの超過分(200-50=150ms)をTBTに加算
+
+TBT = Sum of (Long Task duration - 50ms)
+</div>
+
+<h2>2. FastAverageColor の問題</h2>
+<p>FastAverageColor はcanvasに画像を描画し、ピクセルデータを走査して平均色を計算するライブラリです。</p>
+
+<div class="box bad">
+  <div class="box-title">Before: mode: "precision"</div>
+<pre>const fac = new FastAverageColor();
+const { rgb } = fac.getColor(ev.currentTarget, { mode: "precision" });
+// ↑ 全ピクセルを走査（1000x1000px = 100万ピクセル × 4チャンネル）
+// メインスレッドを数十〜数百msブロック</pre>
+</div>
+
+<h3>precision モードの内部動作</h3>
+<div class="diagram">
+precision mode:
+1. canvas に画像を描画
+2. getImageData() で全ピクセルの RGBA を取得
+3. 全ピクセルを走査して R,G,B の平均を計算
+   for (let i = 0; i &lt; data.length; i += 4) {
+     sumR += data[i];     // Red
+     sumG += data[i+1];   // Green
+     sumB += data[i+2];   // Blue
+   }
+→ 1000x1000px の画像: 4,000,000 回のループ
+→ メインスレッドで数十ms ブロック
+</div>
+
+<div class="box good">
+  <div class="box-title">After: mode: "speed"</div>
+<pre>const fac = new FastAverageColor();
+// Use the fast sampling mode to avoid blocking the main thread on large images.
+const { rgb } = fac.getColor(ev.currentTarget, { mode: "speed" });
+// ↑ 画像を小さな canvas にリサイズしてからサンプリング
+// 数ms で完了</pre>
+</div>
+
+<h3>speed モードの内部動作</h3>
+<div class="diagram">
+speed mode:
+1. 小さな canvas (10x10 程度) に画像を縮小描画
+   → ブラウザが自動的にリサイズ（ハードウェアアクセラレーション）
+2. 100ピクセルだけ走査して平均色を計算
+→ ほぼ瞬時（&lt;1ms）
+→ 精度は若干落ちるが、背景色の決定には十分
+</div>
+
+<h2>3. Long Task を見つける方法</h2>
+
+<h3>DevTools Performance パネル</h3>
+<ol>
+  <li>Chrome DevTools → Performance タブ</li>
+  <li>Record & Reload（ページ読み込みを記録）</li>
+  <li>Main スレッドの赤い三角マーク = Long Task</li>
+  <li>クリックすると、どの関数が何ms使ったか確認できる</li>
+</ol>
+
+<h3>Performance Observer API</h3>
+<pre>
+// コード内で Long Task を検出
+const observer = new PerformanceObserver((list) => {
+  for (const entry of list.getEntries()) {
+    console.warn(`Long Task detected: ${entry.duration}ms`);
+  }
+});
+observer.observe({ type: "longtask", buffered: true });
+</pre>
+
+<h2>4. Long Task の対処パターン</h2>
+<table>
+  <tr><th>パターン</th><th>手法</th><th>例</th></tr>
+  <tr><td>処理を軽くする</td><td>アルゴリズム変更、サンプリング</td><td>FastAverageColor の speed モード</td></tr>
+  <tr><td>Web Worker に逃がす</td><td>メインスレッドから処理を分離</td><td>画像処理、重い計算</td></tr>
+  <tr><td>タスクを分割</td><td><code>scheduler.yield()</code> や <code>setTimeout</code> で分割</td><td>大量DOM更新をチャンクに分割</td></tr>
+  <tr><td>事前計算</td><td>ビルド時やサーバーで計算してDBに保存</td><td>音声波形データ</td></tr>
+  <tr><td>処理を遅延</td><td><code>requestIdleCallback</code> でアイドル時に実行</td><td>アナリティクス初期化</td></tr>
+</table>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: TBT と INP の違いは？</summary>
+    <p><strong>TBT (Total Blocking Time)</strong>: ページ読込中の Long Task の超過時間の合計。FCP〜TTI の間が対象。Lighthouse lab メトリクス。</p>
+    <p><strong>INP (Interaction to Next Paint)</strong>: ユーザーの実際の操作（クリック、タップ、キー入力）から画面更新までの時間のうち最も遅いもの。CrUX フィールドメトリクス。</p>
+    <p>TBT は「読込中にどれだけブロックされたか」、INP は「操作時にどれだけ待たされたか」。両方改善が必要です。</p>
+  </details>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#13 GIF → MP4 変換 - WSH学習</title>
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922}
+  *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.7}.container{max-width:800px;margin:0 auto;padding:40px 24px}a{color:var(--accent)}.back{display:inline-block;margin-bottom:24px;color:var(--muted);text-decoration:none;font-size:.9rem}.back:hover{color:var(--accent)}h1{font-size:1.8rem;margin-bottom:8px}.meta{color:var(--muted);margin-bottom:32px}h2{font-size:1.3rem;margin:32px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;margin:20px 0 8px}p,li{margin-bottom:8px}ul,ol{padding-left:24px}pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:16px 0;font-size:.85rem;line-height:1.5}code{font-family:'SF Mono',Consolas,monospace;font-size:.85em}.box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0}.box-title{font-weight:700;margin-bottom:8px}.box.warn{border-color:var(--orange)}.box.good{border-color:var(--green)}.box.bad{border-color:var(--red)}.diagram{background:#1a1e2e;border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;font-family:monospace;font-size:.85rem;line-height:1.8;white-space:pre;overflow-x:auto}.quiz{background:#1a2a1a;border:1px solid var(--green);border-radius:8px;padding:16px;margin:24px 0}.quiz summary{cursor:pointer;font-weight:700;color:var(--green)}.quiz p{margin-top:8px}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid var(--border);padding:8px 12px;text-align:left;font-size:.85rem}th{background:var(--surface)}
+</style>
+</head>
+<body>
+<div class="container">
+<a class="back" href="index.html">&larr; 目次に戻る</a>
+<h1>#13 GIF &rarr; MP4 変換</h1>
+<p class="meta">影響指標: LCP, 転送量 | 難易度: 中級</p>
+
+<h2>1. GIF が重い構造的な理由</h2>
+<div class="diagram">
+GIF の仕組み:
+┌──────────────────────────────────────────┐
+│ フレーム1  │ フレーム2  │ フレーム3  │ ... │
+│ (完全な画像)│ (完全な画像)│ (完全な画像)│     │
+└──────────────────────────────────────────┘
+圧縮: LZW（フレーム間圧縮なし、256色制限）
+
+MP4 (H.264) の仕組み:
+┌──────────────────────────────────────────┐
+│ I-frame │ P-frame │ P-frame │ I-frame │ ... │
+│ (完全)  │ (差分)  │ (差分)  │ (完全)  │     │
+└──────────────────────────────────────────┘
+圧縮: フレーム間予測 + DCT + エントロピー符号化
+</div>
+
+<table>
+  <tr><th></th><th>GIF</th><th>MP4 (H.264)</th></tr>
+  <tr><td>フレーム間圧縮</td><td>なし（各フレームが独立）</td><td>あり（差分のみ保存）</td></tr>
+  <tr><td>色数</td><td>256色</td><td>1677万色</td></tr>
+  <tr><td>圧縮率</td><td>低い</td><td>非常に高い</td></tr>
+  <tr><td>実際のサイズ</td><td>10-26MB/ファイル</td><td>60-325KB/ファイル</td></tr>
+</table>
+
+<p>WSH 2026 では15個のGIF（合計179MB）を MP4（合計2.4MB）に変換し、<strong>98.7%のサイズ削減</strong>を達成しました。</p>
+
+<h2>2. ffmpeg での変換コマンド</h2>
+<pre>
+# GIF → MP4 変換（Web最適化）
+ffmpeg -i input.gif \
+  -movflags +faststart \  # moov atom を先頭に移動（ストリーミング再生対応）
+  -pix_fmt yuv420p \      # 互換性の高いピクセルフォーマット
+  -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \  # 偶数サイズに調整（H.264要件）
+  output.mp4
+</pre>
+
+<h3>重要なオプション解説</h3>
+<table>
+  <tr><th>オプション</th><th>目的</th><th>なぜ必要か</th></tr>
+  <tr><td><code>-movflags +faststart</code></td><td>moov atom（メタデータ）をファイル先頭に配置</td><td>デフォルトではファイル末尾にあり、全ダウンロード完了まで再生開始できない</td></tr>
+  <tr><td><code>-pix_fmt yuv420p</code></td><td>ピクセルフォーマット指定</td><td>デフォルトの yuv444p は一部ブラウザで再生不可</td></tr>
+  <tr><td><code>-vf "scale=..."</code></td><td>解像度を偶数に揃える</td><td>H.264 は奇数サイズの動画をエンコードできない</td></tr>
+</table>
+
+<h2>3. HTML側の実装変更</h2>
+
+<div class="box bad">
+  <div class="box-title">Before: gifler ライブラリで canvas に描画</div>
+<pre>import { Animator, Decoder } from "gifler";
+import { GifReader } from "omggif";
+
+// バイナリを fetch → GIF デコード → canvas に描画
+const data = await fetchBinary(src);
+const reader = new GifReader(new Uint8Array(data));
+const frames = Decoder.decodeFramesSync(reader);
+const animator = new Animator(reader, frames);
+animator.animateInCanvas(canvasElement);</pre>
+</div>
+
+<div class="box good">
+  <div class="box-title">After: ネイティブ video タグ</div>
+<pre>&lt;video
+  ref={videoRef}
+  src={src}
+  autoPlay       // 自動再生
+  loop           // ループ再生
+  muted          // ミュート（autoPlay に必須）
+  playsInline    // iOS で全画面再生しない
+/&gt;</pre>
+</div>
+
+<h2>4. autoPlay + muted が必須な理由</h2>
+<p>ブラウザの自動再生ポリシーにより、<strong>音声付きの動画は自動再生できません</strong>。<code>muted</code> 属性を付けることで、ユーザー操作なしでの自動再生が許可されます。GIF の代替なので音声は不要であり、<code>muted</code> は自然な選択です。</p>
+
+<h2>5. prefers-reduced-motion 対応</h2>
+<pre>
+// アクセシビリティ: 視覚効果を減らす設定のユーザーには自動再生しない
+useEffect(() => {
+  const video = videoRef.current;
+  if (!video) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    video.pause();
+    setIsPlaying(false);
+  }
+}, []);
+</pre>
+
+<h2>6. 削除できた依存</h2>
+<ul>
+  <li><code>gifler</code> — GIF アニメーションライブラリ</li>
+  <li><code>omggif</code> — GIF デコーダー</li>
+  <li><code>gifler.d.ts</code> — 型定義ファイル</li>
+  <li><code>fetchBinary</code> の呼び出し — バイナリデータの取得が不要に</li>
+</ul>
+<p>video タグはブラウザネイティブなので、追加ライブラリなしでハードウェアアクセラレーションによる高効率デコードが可能です。</p>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: -movflags +faststart を忘れるとどうなる？</summary>
+    <p>moov atom（動画のメタデータ: 解像度、コーデック情報、フレームのオフセット）がファイル末尾に配置されます。ブラウザはまずこのメタデータを読まないと再生を開始できないため、<strong>ファイル全体をダウンロードするまで再生が始まらない</strong>ことになります。faststart を付けるとメタデータが先頭に移動し、ダウンロード開始直後から再生できます。</p>
+  </details>
+</div>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: GIF ではなく WebM や AVIF アニメーションではダメ？</summary>
+    <p>WebM (VP9) は MP4 よりさらに小さくなる場合がありますが、Safari の古いバージョンでサポートが不完全です。AVIF アニメーションは最も圧縮率が高いですが、ブラウザ対応が限定的です。<strong>WSH では Chrome 最新版だけ動けばよい</strong>ので WebM や AVIF も選択肢ですが、MP4 (H.264) が最も安全で変換も簡単です。</p>
+  </details>
+</div>
+
+</div>
+</body>
+</html>

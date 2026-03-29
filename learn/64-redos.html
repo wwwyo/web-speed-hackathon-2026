@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#64 ReDoS 正規表現の修正 - WSH学習</title>
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922}
+  *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.7}.container{max-width:800px;margin:0 auto;padding:40px 24px}a{color:var(--accent)}.back{display:inline-block;margin-bottom:24px;color:var(--muted);text-decoration:none;font-size:.9rem}.back:hover{color:var(--accent)}h1{font-size:1.8rem;margin-bottom:8px}.meta{color:var(--muted);margin-bottom:32px}h2{font-size:1.3rem;margin:32px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;margin:20px 0 8px}p,li{margin-bottom:8px}ul,ol{padding-left:24px}pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:16px 0;font-size:.85rem;line-height:1.5}code{font-family:'SF Mono',Consolas,monospace;font-size:.85em}.box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0}.box-title{font-weight:700;margin-bottom:8px}.box.warn{border-color:var(--orange)}.box.good{border-color:var(--green)}.box.bad{border-color:var(--red)}.diagram{background:#1a1e2e;border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;font-family:monospace;font-size:.85rem;line-height:1.8;white-space:pre;overflow-x:auto}.quiz{background:#1a2a1a;border:1px solid var(--green);border-radius:8px;padding:16px;margin:24px 0}.quiz summary{cursor:pointer;font-weight:700;color:var(--green)}.quiz p{margin-top:8px}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid var(--border);padding:8px 12px;text-align:left;font-size:.85rem}th{background:var(--surface)}
+</style>
+</head>
+<body>
+<div class="container">
+<a class="back" href="index.html">&larr; 目次に戻る</a>
+<h1>#64 ReDoS 正規表現の修正</h1>
+<p class="meta">影響指標: Security, TBT | 難易度: 中級</p>
+
+<h2>1. ReDoS とは</h2>
+<p><strong>ReDoS (Regular Expression Denial of Service)</strong> は、特定の正規表現に対して悪意のある入力を与えることで、マッチング処理が指数関数的に遅くなる脆弱性です。</p>
+
+<div class="diagram">
+正常な入力:    "abc!def"    → マッチ判定: 0.01ms
+悪意ある入力:  "a".repeat(30) → マッチ判定: 数分〜数時間 !!
+
+なぜ？→ Catastrophic Backtracking（破滅的バックトラッキング）
+</div>
+
+<h2>2. Catastrophic Backtracking の仕組み</h2>
+<p>WSH 2026 で実際に存在した危険な正規表現を例に解説します:</p>
+
+<div class="box bad">
+  <div class="box-title">危険な正規表現（パスワードチェック）</div>
+<pre>/^(?:[^\P{Letter}&&\P{Number}]*){16,}$/v</pre>
+</div>
+
+<p>この正規表現は「文字または数字のみ16文字以上」にマッチします。問題は <code>([...]*)が{16,}回</code> の<strong>ネスト量指定子</strong>です。</p>
+
+<div class="diagram">
+入力: "superultra_hyper_miracle_romantic" (記号 _ を含む32文字)
+
+正規表現エンジンの動き:
+1. まず * で "superultra" (10文字) を消費 → _ でマッチ失敗
+2. バックトラック: "superultr" (9文字) にして、
+   次の繰り返しで "a" を試す...
+3. さらにバックトラック: "superult" (8文字)...
+
+組み合わせ数: 各文字を「どの繰り返しに割り当てるか」の
+全パターンを試す → O(2^n) で爆発！
+
+n=32 の場合: 2^32 = 約43億パターン → 数時間かかる
+</div>
+
+<h2>3. 危険パターンの見分け方</h2>
+<table>
+  <tr><th>パターン</th><th>例</th><th>なぜ危険か</th></tr>
+  <tr><td>ネストした量指定子</td><td><code>(a+)+</code>, <code>(a*)*</code>, <code>(a+){N}</code></td><td>各文字の割当先が指数的に増える</td></tr>
+  <tr><td>重複する選択肢</td><td><code>(a|a)+</code>, <code>(\d|\d)+</code></td><td>どちらの選択肢も同じ文字にマッチ</td></tr>
+  <tr><td>重複する文字クラス + 量指定子</td><td><code>[a-zA-Z]*[a-z]</code></td><td>文字クラスの範囲が重なる</td></tr>
+  <tr><td>WSH 2026 の例</td><td><code>((\d|\d{4}-\d{2}-\d{2})+)+$</code></td><td>数字が両方にマッチし、$ で失敗時にバックトラック爆発</td></tr>
+</table>
+
+<h2>4. WSH 2026 での修正</h2>
+
+<h3>修正1: パスワードバリデーション</h3>
+<div class="box bad">
+  <div class="box-title">Before</div>
+<pre>/^(?:[^\P{Letter}&&\P{Number}]*){16,}$/v.test(password)
+// ネスト量指定子: ([...]*){16,} → バックトラッキング爆発</pre>
+</div>
+<div class="box good">
+  <div class="box-title">After</div>
+<pre>// 「記号を含むか」を単純にチェック
+password.length > 0 && /^[\p{Letter}\p{Number}]*$/v.test(password)
+// ↑ 文字・数字のみなら true → 記号なし → エラー
+// ネストなし、バックトラッキングなし、O(n)</pre>
+</div>
+
+<h3>修正2: 検索クエリの日付パース</h3>
+<div class="box bad">
+  <div class="box-title">Before</div>
+<pre>const sincePattern = /since:((\d|\d\d|\d\d\d\d-\d\d-\d\d)+)+$/;
+//                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+// (\d|\d\d|\d{4}-\d{2}-\d{2}) が + で繰り返し、さらに外側も +
+// 数字文字列に対してバックトラッキング爆発
+
+const slowDateLike = /^(\d+)+-(\d+)+-(\d+)+$/;
+//                     ^^^^^  ^^^^^  ^^^^^
+// (\d+)+ は典型的な ReDoS パターン</pre>
+</div>
+<div class="box good">
+  <div class="box-title">After</div>
+<pre>// 日付フォーマットを固定長で指定（バックトラッキング不要）
+const sincePattern = /since:(\d{4}-\d{2}-\d{2})/;
+const dateLike = /^\d{4}-\d{2}-\d{2}$/;
+// ↑ 量指定子は固定長 {4}, {2} のみ
+// ネストなし、選択肢の重複なし、O(n)</pre>
+</div>
+
+<h2>5. 安全な正規表現を書くルール</h2>
+<ol>
+  <li><strong>ネストした量指定子を避ける</strong>: <code>(a+)+</code>, <code>(a*)*</code>, <code>(a+){n}</code> は全て危険</li>
+  <li><strong>固定長の量指定子を使う</strong>: <code>\d{4}</code> は安全。<code>\d+</code> のネストは危険</li>
+  <li><strong>選択肢の重複を排除</strong>: <code>(a|ab)</code> → <code>ab?</code> に書き直す</li>
+  <li><strong>アンカー ($) に頼らない</strong>: $ でマッチ失敗するとバックトラッキングが走る</li>
+  <li><strong>正規表現より文字列メソッド</strong>: <code>str.startsWith()</code>, <code>str.includes()</code> の方が安全</li>
+</ol>
+
+<h2>6. 検出ツール</h2>
+<pre>
+# safe-regex で静的解析
+npx safe-regex "/^(a+)+$/"
+# → false (unsafe)
+
+# recheck でより詳細な解析
+npx recheck "/^(a+)+$/"
+
+# eslint-plugin-regexp
+# .eslintrc に追加すると ReDoS パターンを自動検出
+{
+  "plugins": ["regexp"],
+  "rules": {
+    "regexp/no-super-linear-backtracking": "error"
+  }
+}
+</pre>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: /^(a+)+$/ に "aaaaX" を入れると何が起きる？</summary>
+    <p>正規表現エンジンは以下を試みます:</p>
+    <ol>
+      <li>"aaaa" を1つ目の <code>a+</code> で消費 → "X" で <code>$</code> にマッチ失敗</li>
+      <li>"aaa" + "a" の分割を試す → 同様に失敗</li>
+      <li>"aa" + "aa", "aa" + "a" + "a", "a" + "aaa", ... の全組み合わせ</li>
+    </ol>
+    <p>4文字の "a" を「どの <code>a+</code> グループに割り当てるか」の全パターンは <strong>2^3 = 8通り</strong>。"a" が30文字なら <strong>2^29 ≈ 5億通り</strong>。計算量が入力長に対して<strong>指数関数的に増加</strong>します。</p>
+  </details>
+</div>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: なぜ /^\d{4}-\d{2}-\d{2}$/ は安全？</summary>
+    <p>全ての量指定子が<strong>固定長</strong>（<code>{4}</code>, <code>{2}</code>）だからです。固定長量指定子にはバックトラッキングの余地がありません。「4桁の数字」に対して「3桁+1桁に分割して試す」ような分割パターンが存在しないためです。正規表現の安全性を高めるには、可能な限り固定長の量指定子を使うことが有効です。</p>
+  </details>
+</div>
+
+</div>
+</body>
+</html>

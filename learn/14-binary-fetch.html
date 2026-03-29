@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#14 バイナリ取得の廃止 - WSH学習</title>
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922}
+  *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.7}.container{max-width:800px;margin:0 auto;padding:40px 24px}a{color:var(--accent)}.back{display:inline-block;margin-bottom:24px;color:var(--muted);text-decoration:none;font-size:.9rem}.back:hover{color:var(--accent)}h1{font-size:1.8rem;margin-bottom:8px}.meta{color:var(--muted);margin-bottom:32px}h2{font-size:1.3rem;margin:32px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;margin:20px 0 8px}p,li{margin-bottom:8px}ul,ol{padding-left:24px}pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:16px 0;font-size:.85rem;line-height:1.5}code{font-family:'SF Mono',Consolas,monospace;font-size:.85em}.box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0}.box-title{font-weight:700;margin-bottom:8px}.box.warn{border-color:var(--orange)}.box.good{border-color:var(--green)}.box.bad{border-color:var(--red)}.diagram{background:#1a1e2e;border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;font-family:monospace;font-size:.85rem;line-height:1.8;white-space:pre;overflow-x:auto}.quiz{background:#1a2a1a;border:1px solid var(--green);border-radius:8px;padding:16px;margin:24px 0}.quiz summary{cursor:pointer;font-weight:700;color:var(--green)}.quiz p{margin-top:8px}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid var(--border);padding:8px 12px;text-align:left;font-size:.85rem}th{background:var(--surface)}
+</style>
+</head>
+<body>
+<div class="container">
+<a class="back" href="index.html">&larr; 目次に戻る</a>
+<h1>#14 バイナリ取得の廃止</h1>
+<p class="meta">影響指標: LCP, TBT | 難易度: 基礎</p>
+
+<h2>1. 問題: 画像表示に4ステップもかかっていた</h2>
+<div class="diagram">
+Before の処理フロー:
+1. fetchBinary(url)          → ArrayBuffer をダウンロード
+2. sizeOf(Buffer.from(data)) → image-size で幅/高さを取得（JS実行）
+3. URL.createObjectURL(blob) → Blob URL を生成
+4. &lt;img src={blobUrl}&gt; に設定
+5. JS で containerRatio vs imageRatio を計算
+6. absolute + translate で手動 cover
+
+After の処理フロー:
+1. &lt;img src={url}&gt;           → ブラウザが直接読み込み（以上！）
+</div>
+
+<h2>2. Before のコードが遅い理由</h2>
+
+<div class="box bad">
+  <div class="box-title">Before: 全てJSで制御</div>
+<pre>const { data, isLoading } = useFetch(src, fetchBinary);
+
+// JS でサイズ計算
+const imageSize = useMemo(() => {
+  return data != null
+    ? sizeOf(Buffer.from(data))  // ← image-size + Buffer polyfill
+    : { height: 0, width: 0 };
+}, [data]);
+
+// Blob URL 生成
+const blobUrl = useMemo(() => {
+  return data != null
+    ? URL.createObjectURL(new Blob([data]))
+    : null;
+}, [data]);
+
+// コンテナサイズ取得
+const [containerSize, setContainerSize] = useState({ height: 0, width: 0 });
+const callbackRef = useCallback((el) => {
+  setContainerSize({
+    height: el?.clientHeight ?? 0,
+    width: el?.clientWidth ?? 0,
+  });
+}, []);
+
+// 手動 cover 計算
+const containerRatio = containerSize.height / containerSize.width;
+const imageRatio = imageSize.height / imageSize.width;
+
+&lt;img
+  className={containerRatio > imageRatio ? "w-auto h-full" : "w-full h-auto"}
+  style={{ position: "absolute", transform: "translate(-50%, -50%)" }}
+  src={blobUrl}
+/&gt;</pre>
+</div>
+
+<h3>問題点の内訳:</h3>
+<table>
+  <tr><th>処理</th><th>問題</th><th>コスト</th></tr>
+  <tr><td><code>fetchBinary</code></td><td>画像をJSのArrayBufferとして取得。ブラウザの画像デコードパイプラインを使えない</td><td>メモリ2倍（ArrayBuffer + img）</td></tr>
+  <tr><td><code>image-size</code> + <code>Buffer</code></td><td>画像ヘッダーをパースしてサイズ取得。Buffer polyfill（~50KB）が必要</td><td>TBT増加</td></tr>
+  <tr><td><code>URL.createObjectURL</code></td><td>Blob URL の生成と管理。メモリリーク防止に revokeObjectURL が必要</td><td>メモリリーク</td></tr>
+  <tr><td>手動 cover 計算</td><td>JSでアスペクト比を計算し、条件分岐でCSS classを切替え</td><td>リサイズで再計算</td></tr>
+</table>
+
+<h2>3. After: CSS object-fit に任せる</h2>
+
+<div class="box good">
+  <div class="box-title">After: 2行で完了</div>
+<pre>&lt;div className="relative h-full w-full overflow-hidden"&gt;
+  &lt;img
+    alt={alt}
+    className="h-full w-full object-cover"
+    src={src}
+  /&gt;
+&lt;/div&gt;</pre>
+</div>
+
+<h3>object-fit の値</h3>
+<table>
+  <tr><th>値</th><th>動作</th><th>使いどころ</th></tr>
+  <tr><td><code>cover</code></td><td>コンテナを埋める。はみ出す部分はクリップ</td><td>サムネイル、バナー画像</td></tr>
+  <tr><td><code>contain</code></td><td>全体が見えるように収める。余白ができる</td><td>ロゴ、アイコン</td></tr>
+  <tr><td><code>fill</code></td><td>コンテナにぴったり伸縮（アスペクト比無視）</td><td>ほぼ使わない</td></tr>
+  <tr><td><code>none</code></td><td>元サイズのまま</td><td>ピクセルパーフェクトな表示</td></tr>
+  <tr><td><code>scale-down</code></td><td>none と contain の小さい方</td><td>拡大は防ぎたい場合</td></tr>
+</table>
+
+<h2>4. なぜブラウザに任せるべきか</h2>
+<ul>
+  <li><strong>Progressive decoding</strong>: ブラウザは画像を段階的にデコードできる。fetchBinary ではダウンロード完了まで何も表示されない</li>
+  <li><strong>キャッシュの効率</strong>: <code>&lt;img src&gt;</code> はブラウザのHTTPキャッシュ、メモリキャッシュ、ディスクキャッシュを自然に活用</li>
+  <li><strong>Lazy loading</strong>: <code>loading="lazy"</code> が使える（fetchBinary では自前実装が必要）</li>
+  <li><strong>Priority hints</strong>: <code>fetchpriority="high"</code> が使える</li>
+  <li><strong>メモリ効率</strong>: JS heap にバイナリを保持しないので GC 負荷が減る</li>
+</ul>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: object-fit: cover の等価な CSS は？</summary>
+    <p>Before のコードが手動実装していたのと同じロジック:</p>
+<pre>position: absolute;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+/* + JS でアスペクト比を比較して width:auto/height:100% or width:100%/height:auto を切替え */</pre>
+    <p><code>object-fit: cover</code> はこの全てをブラウザの内部実装で行います。JS は一切不要で、GPU アクセラレーションも効きます。</p>
+  </details>
+</div>
+
+</div>
+</body>
+</html>

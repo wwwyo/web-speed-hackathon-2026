@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#5 HTML最適化とレンダリング開始タイミング - WSH学習</title>
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922}
+  *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.7}.container{max-width:800px;margin:0 auto;padding:40px 24px}a{color:var(--accent)}.back{display:inline-block;margin-bottom:24px;color:var(--muted);text-decoration:none;font-size:.9rem}.back:hover{color:var(--accent)}h1{font-size:1.8rem;margin-bottom:8px}.meta{color:var(--muted);margin-bottom:32px}h2{font-size:1.3rem;margin:32px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;margin:20px 0 8px}p,li{margin-bottom:8px}ul,ol{padding-left:24px}pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:16px 0;font-size:.85rem;line-height:1.5}code{font-family:'SF Mono',Consolas,monospace;font-size:.85em}.box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0}.box-title{font-weight:700;margin-bottom:8px}.box.warn{border-color:var(--orange)}.box.good{border-color:var(--green)}.box.bad{border-color:var(--red)}.diagram{background:#1a1e2e;border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;font-family:monospace;font-size:.85rem;line-height:1.8;white-space:pre;overflow-x:auto}.quiz{background:#1a2a1a;border:1px solid var(--green);border-radius:8px;padding:16px;margin:24px 0}.quiz summary{cursor:pointer;font-weight:700;color:var(--green)}.quiz p{margin-top:8px}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid var(--border);padding:8px 12px;text-align:left;font-size:.85rem}th{background:var(--surface)}
+</style>
+</head>
+<body>
+<div class="container">
+<a class="back" href="index.html">&larr; 目次に戻る</a>
+<h1>#5 HTML最適化とレンダリング開始タイミング</h1>
+<p class="meta">影響指標: FCP, LCP, TBT | 難易度: 基礎</p>
+
+<h2>1. script タグの読み込み方式</h2>
+<p>ブラウザが HTML を上から順にパース（解析）するとき、<code>&lt;script&gt;</code> タグの書き方によって挙動が大きく変わります。</p>
+
+<div class="diagram">
+■ 属性なし（デフォルト）
+&lt;script src="main.js"&gt;&lt;/script&gt;
+
+HTML:  ████████──STOP──████████████████████▶
+JS:              ▼download▼▼execute▼
+                 ↑ HTMLパースが完全に止まる（parser blocking）
+
+■ async
+&lt;script async src="main.js"&gt;&lt;/script&gt;
+
+HTML:  ██████████████████──STOP──███████████▶
+JS:         ▼download▼  ▼execute▼
+            ↑ DL中はパース続行、実行時だけ止まる
+            ※ 実行順序は保証されない
+
+■ defer
+&lt;script defer src="main.js"&gt;&lt;/script&gt;
+
+HTML:  ████████████████████████████████████▶
+JS:         ▼download▼             ▼execute▼
+            ↑ DL中もパース続行      ↑ HTMLパース完了後に実行
+            ※ 記述順に実行される
+</div>
+
+<table>
+  <tr><th>属性</th><th>HTMLパースをブロック</th><th>実行タイミング</th><th>実行順序</th></tr>
+  <tr><td>なし</td><td><strong>する（最悪）</strong></td><td>DL完了直後</td><td>記述順</td></tr>
+  <tr><td><code>async</code></td><td>DL中はしない、実行中はする</td><td>DL完了直後</td><td><strong>保証なし</strong></td></tr>
+  <tr><td><code>defer</code></td><td><strong>しない（最良）</strong></td><td>HTMLパース完了後</td><td>記述順</td></tr>
+</table>
+
+<h2>2. WSH 2026 で何が起きていたか</h2>
+
+<div class="box bad">
+  <div class="box-title">Before: 二重のブロッキング</div>
+<pre>&lt;!-- index.html --&gt;
+&lt;script src="/scripts/main.js"&gt;&lt;/script&gt;  &lt;!-- ← 属性なし = parser blocking --&gt;</pre>
+<pre>// index.tsx
+window.addEventListener("load", () =&gt; {    // ← load イベントまで待つ
+  createRoot(document.getElementById("app")!).render(
+    &lt;Provider store={store}&gt;
+      &lt;BrowserRouter&gt;
+        &lt;AppContainer /&gt;
+      &lt;/BrowserRouter&gt;
+    &lt;/Provider&gt;,
+  );
+});</pre>
+</div>
+
+<h3>問題点は2つ：</h3>
+
+<h3>問題1: script タグに属性がない</h3>
+<div class="diagram">
+HTML パースの流れ:
+
+&lt;head&gt;
+  &lt;meta ...&gt;
+  &lt;title&gt;CaX&lt;/title&gt;
+  &lt;script src="/scripts/main.js"&gt;&lt;/script&gt;   ← ここでパース停止！
+  &lt;link rel="stylesheet" ...&gt;                ← JSのDL+実行が終わるまで
+  ...                                            読み込まれない
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div id="app"&gt;&lt;/div&gt;                      ← body もまだ存在しない
+&lt;/body&gt;
+
+結果: JS のダウンロード+実行中、ページは真っ白
+</div>
+
+<h3>問題2: load イベントを待っている</h3>
+<div class="diagram">
+load イベントのタイミング:
+
+HTML パース  → DOM 構築  → CSS/画像/フォント 全部DL  → load 発火
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▶
+                                                     ↑ ここでやっと React 起動
+                                                       全リソース待ちは不要！
+
+DOMContentLoaded のタイミング:
+HTML パース → DOM 構築 → DOMContentLoaded 発火
+━━━━━━━━━━━━━━━━━━━━━▶
+                       ↑ defer スクリプトはここで実行される
+                         画像やフォントのDLを待たない
+</div>
+
+<p><code>load</code> イベントは画像・フォント・CSS 等の<strong>全リソースのダウンロード完了後</strong>に発火します。React の初期化に全リソース完了を待つ必要は全くありません。</p>
+
+<h2>3. 修正内容</h2>
+
+<div class="box good">
+  <div class="box-title">After: defer + 即座レンダリング</div>
+<pre>&lt;!-- index.html --&gt;
+&lt;script defer src="/scripts/main.js"&gt;&lt;/script&gt;  &lt;!-- defer 追加 --&gt;</pre>
+<pre>// index.tsx - load イベントのラッパーを削除
+createRoot(document.getElementById("app")!).render(
+  &lt;Provider store={store}&gt;
+    &lt;BrowserRouter&gt;
+      &lt;AppContainer /&gt;
+    &lt;/BrowserRouter&gt;
+  &lt;/Provider&gt;,
+);</pre>
+</div>
+
+<h3>改善効果の流れ:</h3>
+<div class="diagram">
+Before:
+──[HTML parse]──STOP──[JS DL]──[JS exec]──[HTML]──[CSS DL]──[load]──[React]──▶
+                                                              ↑ ここまで真っ白
+
+After:
+──[HTML parse ═══════════════════════════]──[JS exec]──[React]──▶
+        ↑ JS は並行DL（パース止めない）      ↑ パース完了直後に実行
+
+FCP/LCP の改善: 数百ms 〜 数秒の短縮
+</div>
+
+<h2>4. defer vs async：どちらを使うべきか</h2>
+
+<table>
+  <tr><th>場面</th><th>推奨</th><th>理由</th></tr>
+  <tr><td>アプリのメインJS</td><td><code>defer</code></td><td>DOM が必要 + 実行順序を保証したい</td></tr>
+  <tr><td>アナリティクス (GA等)</td><td><code>async</code></td><td>DOM 不要 + 他のJSと順序依存なし</td></tr>
+  <tr><td>インラインスクリプト</td><td>どちらも効かない</td><td>外部ファイルにのみ有効</td></tr>
+  <tr><td>type="module"</td><td>不要（デフォルトで defer 相当）</td><td>ES Modules は仕様で defer 動作</td></tr>
+</table>
+
+<div class="box warn">
+  <div class="box-title">注意: defer は DOM 存在を保証する</div>
+  <p><code>defer</code> スクリプトは HTML パース完了後（DOMContentLoaded 直前）に実行されます。つまり <code>document.getElementById("app")</code> は必ず成功します。だからこそ <code>load</code> イベントを待つ必要がないのです。</p>
+</div>
+
+<h2>5. ブラウザのリソース読み込みパイプライン</h2>
+<div class="diagram">
+ブラウザがページを表示するまで:
+
+1. HTML をダウンロード
+2. HTML をパース（DOM ツリー構築）
+   ├─ &lt;link rel="stylesheet"&gt; → CSS ダウンロード → CSSOM 構築
+   ├─ &lt;script&gt; (defer なし) → ★パース停止★ → JS DL+実行
+   ├─ &lt;script defer&gt; → バックグラウンドで JS DL（パース継続）
+   └─ &lt;img&gt;, &lt;font&gt; → バックグラウンドで DL
+3. DOM + CSSOM → Render Tree 構築
+4. Layout（レイアウト計算）
+5. Paint（描画）→ FCP ★
+6. defer スクリプト実行 → React レンダリング → LCP ★
+7. 画像・フォント等 全DL完了 → load イベント
+</div>
+
+<p>defer を使うことで、ステップ2の「パース停止」がなくなり、FCP が大幅に早まります。さらに load を待たないことで、ステップ6→7の待ち時間もなくなり、LCP も改善します。</p>
+
+<h2>6. さらに進んだ最適化</h2>
+<ul>
+  <li><strong>preload</strong>: <code>&lt;link rel="preload" href="main.js" as="script"&gt;</code> でブラウザの preload scanner より早くDL開始</li>
+  <li><strong>modulepreload</strong>: ES Modules の場合は <code>&lt;link rel="modulepreload"&gt;</code> で依存チェーンを事前解決</li>
+  <li><strong>Critical CSS のインライン化</strong>: render-blocking な外部CSSを減らし、初期表示に必要な CSS だけ <code>&lt;style&gt;</code> に埋める</li>
+</ul>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: DOMContentLoaded と load の違いは？</summary>
+    <p><strong>DOMContentLoaded</strong>: HTML のパースが完了し、DOM ツリーが構築された時点で発火。CSS、画像、iframe のダウンロード完了は待たない。defer スクリプトの実行完了後に発火。</p>
+    <p><strong>load</strong>: ページの全リソース（画像、CSS、フォント、iframe 等）のダウンロードが完了した時点で発火。</p>
+    <p>React SPA の場合、DOM が存在すれば十分なので <code>DOMContentLoaded</code> 相当のタイミング（= defer スクリプト実行時）で起動するのが最適です。</p>
+  </details>
+</div>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: &lt;script&gt; が &lt;head&gt; にあるのと &lt;body&gt; 末尾にあるのは何が違う？</summary>
+    <p><strong>&lt;head&gt; に属性なし</strong>: HTML パースの冒頭でブロック。最悪の配置。</p>
+    <p><strong>&lt;body&gt; 末尾に属性なし</strong>: HTML パースがほぼ終わった後にブロック。昔のベストプラクティスだった。</p>
+    <p><strong>&lt;head&gt; に defer</strong>: DL は早い段階で開始（preload scanner が検出）しつつ、パースをブロックしない。<strong>現在のベストプラクティス</strong>。body末尾より DL 開始が早い分だけ有利。</p>
+  </details>
+</div>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: async と defer を両方付けたらどうなる？</summary>
+    <p>仕様上は <code>async</code> が優先されます。ただし、<code>async</code> をサポートしない古いブラウザでは <code>defer</code> にフォールバックします。現代のブラウザでは両方付ける意味はなく、意図に応じてどちらか一方を使うべきです。</p>
+  </details>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#30 重いライブラリの軽量化 - WSH学習</title>
+<style>
+  :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922}
+  *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.7}.container{max-width:800px;margin:0 auto;padding:40px 24px}a{color:var(--accent)}.back{display:inline-block;margin-bottom:24px;color:var(--muted);text-decoration:none;font-size:.9rem}.back:hover{color:var(--accent)}h1{font-size:1.8rem;margin-bottom:8px}.meta{color:var(--muted);margin-bottom:32px}h2{font-size:1.3rem;margin:32px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;margin:20px 0 8px}p,li{margin-bottom:8px}ul,ol{padding-left:24px}pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:16px 0;font-size:.85rem;line-height:1.5}code{font-family:'SF Mono',Consolas,monospace;font-size:.85em}.box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0}.box-title{font-weight:700;margin-bottom:8px}.box.warn{border-color:var(--orange)}.box.good{border-color:var(--green)}.box.bad{border-color:var(--red)}.diagram{background:#1a1e2e;border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;font-family:monospace;font-size:.85rem;line-height:1.8;white-space:pre;overflow-x:auto}.quiz{background:#1a2a1a;border:1px solid var(--green);border-radius:8px;padding:16px;margin:24px 0}.quiz summary{cursor:pointer;font-weight:700;color:var(--green)}.quiz p{margin-top:8px}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid var(--border);padding:8px 12px;text-align:left;font-size:.85rem}th{background:var(--surface)}
+</style>
+</head>
+<body>
+<div class="container">
+<a class="back" href="index.html">&larr; 目次に戻る</a>
+<h1>#30 重いライブラリの軽量化</h1>
+<p class="meta">影響指標: Bundle Size | 難易度: 中級</p>
+
+<h2>1. Tree Shaking が効かないライブラリ</h2>
+<p>Tree Shaking は「使っていないコードをバンドルから除外する」最適化ですが、一部のライブラリは構造的に Tree Shaking が効きません。</p>
+
+<div class="diagram">
+Tree Shaking が効くライブラリ:
+// ESM + 個別 export
+import { Button } from "ui-lib";
+// → Button のコードだけバンドルに含まれる
+
+Tree Shaking が効かないライブラリ:
+// デフォルト export が全言語定義を含むオブジェクト
+import SyntaxHighlighter from "react-syntax-highlighter";
+// → 200以上の言語定義が全てバンドルに含まれる (1.2MB)
+</div>
+
+<h2>2. react-syntax-highlighter の問題</h2>
+<p>デフォルト import すると<strong>全ての言語定義</strong>がバンドルに含まれます:</p>
+
+<div class="box bad">
+  <div class="box-title">Before: 1.262 MiB</div>
+<pre>import SyntaxHighlighter from "react-syntax-highlighter";
+import { atomOneLight } from "react-syntax-highlighter/dist/esm/styles/hljs";
+
+// ← これだけで 200+ 言語の文法定義が全て含まれる</pre>
+</div>
+
+<h2>3. prism-light パターン</h2>
+<p>react-syntax-highlighter には軽量版のエントリポイント <code>prism-light</code> があり、必要な言語だけを手動で登録できます。</p>
+
+<div class="box good">
+  <div class="box-title">After: 482 KiB (62%削減)</div>
+<pre>// 軽量版のベースコンポーネント
+import SyntaxHighlighter from "react-syntax-highlighter/dist/esm/prism-light";
+
+// 必要な言語だけ個別 import
+import javascript from "react-syntax-highlighter/dist/esm/languages/prism/javascript";
+import typescript from "react-syntax-highlighter/dist/esm/languages/prism/typescript";
+import python from "react-syntax-highlighter/dist/esm/languages/prism/python";
+import json from "react-syntax-highlighter/dist/esm/languages/prism/json";
+// ... 必要な言語だけ
+
+// スタイルも prism 用を使う
+import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
+
+// 手動で言語を登録
+SyntaxHighlighter.registerLanguage("javascript", javascript);
+SyntaxHighlighter.registerLanguage("typescript", typescript);
+SyntaxHighlighter.registerLanguage("python", python);
+SyntaxHighlighter.registerLanguage("json", json);
+
+// エイリアス設定（"js" → "javascript" など）
+SyntaxHighlighter.alias("javascript", ["js"]);
+SyntaxHighlighter.alias("typescript", ["ts"]);</pre>
+</div>
+
+<h2>4. 未対応言語のフォールバック</h2>
+<pre>
+// サポート言語のセットを作る
+const supportedLanguages = new Set([
+  "javascript", "typescript", "python", "json",
+  "js", "ts", "py",  // エイリアスも含める
+]);
+
+// 使用時
+if (!supportedLanguages.has(language)) {
+  // 未対応言語は素の pre/code で表示（ハイライトなし、でも表示は崩れない）
+  return &lt;pre&gt;&lt;code&gt;{code}&lt;/code&gt;&lt;/pre&gt;;
+}
+
+return (
+  &lt;SyntaxHighlighter language={language} style={oneLight}&gt;
+    {code}
+  &lt;/SyntaxHighlighter&gt;
+);</pre>
+
+<h2>5. この手法が使える他のライブラリ</h2>
+<table>
+  <tr><th>ライブラリ</th><th>重い import</th><th>軽量版</th></tr>
+  <tr><td>react-syntax-highlighter</td><td>デフォルト import (1.2MB)</td><td>prism-light + 個別言語 (482KB)</td></tr>
+  <tr><td>highlight.js</td><td><code>import hljs from "highlight.js"</code></td><td><code>import hljs from "highlight.js/lib/core"</code> + 個別言語</td></tr>
+  <tr><td>moment.js</td><td><code>import moment from "moment"</code> (全ロケール含む)</td><td>ネイティブ Intl API に置換</td></tr>
+  <tr><td>lodash</td><td><code>import _ from "lodash"</code></td><td><code>import debounce from "lodash/debounce"</code> 個別 import</td></tr>
+  <tr><td>@fortawesome</td><td>全アイコンパック (数MB)</td><td>使用アイコンだけの SVG sprite</td></tr>
+</table>
+
+<h2>6. バンドルサイズの確認方法</h2>
+<pre>
+# Rsdoctor でビルド分析（WSH 2026 で導入済み）
+RSDOCTOR=true pnpm build
+
+# webpack-bundle-analyzer でも可
+npx webpack-bundle-analyzer dist/stats.json
+
+# 特定チャンクに含まれるライブラリを grep で確認
+rg "react-syntax-highlighter" dist/
+</pre>
+
+<div class="quiz">
+  <details>
+    <summary>確認クイズ: hljs と prism の違いは？</summary>
+    <p><code>react-syntax-highlighter</code> は内部で2つのハイライトエンジンをサポートしています:</p>
+    <ul>
+      <li><strong>hljs (highlight.js)</strong>: <code>dist/esm/styles/hljs/</code> のスタイルを使う</li>
+      <li><strong>prism (PrismJS)</strong>: <code>dist/esm/styles/prism/</code> のスタイルを使う。軽量版（prism-light）がある</li>
+    </ul>
+    <p>Before は hljs、After は prism-light。エンジンの変更なのでスタイル名も変える必要があります（atomOneLight → oneLight）。</p>
+  </details>
+</div>
+
+</div>
+</body>
+</html>

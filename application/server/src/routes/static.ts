@@ -1,6 +1,6 @@
+import fs from "node:fs";
 import path from "node:path";
 
-import history from "connect-history-api-fallback";
 import { Router } from "express";
 import serveStatic from "serve-static";
 
@@ -9,33 +9,53 @@ import {
   PUBLIC_PATH,
   UPLOAD_PATH,
 } from "@web-speed-hackathon-2026/server/src/paths";
+import { Post } from "@web-speed-hackathon-2026/server/src/models";
 
 const HASHED_FILE_RE = /chunk-[0-9a-f]+\.js$/;
 
-export const staticRouter = Router();
+let cachedInitialPosts: string | null = null;
 
-// SPA 対応のため、ファイルが存在しないときに index.html を返す
-staticRouter.use(history());
+async function getInitialPostsJSON(): Promise<string> {
+  if (cachedInitialPosts != null) return cachedInitialPosts;
+  const posts = await Post.findAll({ limit: 3, offset: 0 });
+  cachedInitialPosts = JSON.stringify(posts);
+  return cachedInitialPosts;
+}
+
+export function invalidateInitialPostsCache() {
+  cachedInitialPosts = null;
+}
+
+let cachedIndexHtml: string | null = null;
+
+function getIndexHtml(): string {
+  if (cachedIndexHtml != null) return cachedIndexHtml;
+  cachedIndexHtml = fs.readFileSync(path.join(CLIENT_DIST_PATH, "index.html"), "utf-8");
+  return cachedIndexHtml;
+}
+
+export const staticRouter = Router();
 
 staticRouter.use(
   serveStatic(UPLOAD_PATH, {
+    index: false,
     maxAge: "1d",
   }),
 );
 
 staticRouter.use(
   serveStatic(PUBLIC_PATH, {
+    index: false,
     maxAge: "7d",
   }),
 );
 
 staticRouter.use(
   serveStatic(CLIENT_DIST_PATH, {
+    index: false, // index.html の自動配信を無効化（自前で返す）
     setHeaders(res, filePath) {
       const basename = path.basename(filePath);
-      if (basename === "index.html") {
-        res.setHeader("Cache-Control", "no-cache");
-      } else if (HASHED_FILE_RE.test(basename)) {
+      if (HASHED_FILE_RE.test(basename)) {
         res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
       } else {
         res.setHeader("Cache-Control", "public, max-age=604800");
@@ -43,3 +63,17 @@ staticRouter.use(
     },
   }),
 );
+
+// SPA fallback: 静的ファイルにマッチしなかったリクエストに index.html + 初期データを返す
+staticRouter.use(async (_req, res) => {
+  const html = getIndexHtml();
+  const postsJSON = await getInitialPostsJSON();
+  const injected = html.replace(
+    "</head>",
+    `<script>window.__INITIAL_POSTS__=${postsJSON}</script></head>`,
+  );
+
+  res.setHeader("Content-Type", "text/html");
+  res.setHeader("Cache-Control", "no-cache");
+  res.send(injected);
+});

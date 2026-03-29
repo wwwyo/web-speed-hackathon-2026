@@ -3,7 +3,6 @@ import { defineCommand, runMain } from "citty";
 import { stripIndents } from "common-tags";
 import debug from "debug";
 import _ from "lodash";
-import { inject } from "regexparam";
 
 import { calculate, TARGET_NAME_LIST } from "./calculate";
 import { consola } from "./consola";
@@ -114,24 +113,6 @@ const command = defineCommand({
       type: "string",
       valueHint: "2026-01-01T00:00:00.000+09:00",
     },
-    dashboardServerToken: {
-      required: false,
-      type: "string",
-    },
-    dashboardServerUrl: {
-      required: false,
-      type: "string",
-      valueHint: "https://scoring-board.example/",
-    },
-    participationGitHubId: {
-      required: false,
-      type: "string",
-    },
-    participationKind: {
-      required: false,
-      type: "string",
-      valueHint: "学生 | 一般",
-    },
     targetName: {
       description:
         "計測名を指定すると、その計測のみを実行します。計測名を省略すると利用可能な計測名を表示します。",
@@ -149,42 +130,8 @@ const command = defineCommand({
       targetName,
       competitionEndAt = null,
       competitionStartAt = null,
-      dashboardServerToken = null,
-      dashboardServerUrl = null,
-      participationGitHubId = null,
-      participationKind = null,
     },
   }) {
-    async function sendScoreToDashboard(score: number): Promise<{ rank: number | null }> {
-      if (!dashboardServerUrl || !dashboardServerToken || !participationGitHubId) {
-        return { rank: null };
-      }
-
-      const requestUrl = new URL(
-        inject("/api/scores/:userId", {
-          userId: participationGitHubId,
-        }),
-        dashboardServerUrl,
-      );
-      const res = await fetch(requestUrl, {
-        body: JSON.stringify({
-          kind: participationKind === "学生" ? "STUDENT" : "GENERAL",
-          previewUrl: applicationUrl,
-          score,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-          Token: dashboardServerToken,
-        },
-        method: "POST",
-      });
-
-      if (res.status !== 200) {
-        return { rank: null };
-      }
-      return res.json() as Promise<{ rank: number }>;
-    }
-
     const writer = (() => {
       if (debug.enabled("wsh:log")) {
         return new EmptyWriter();
@@ -294,41 +241,12 @@ const command = defineCommand({
         const totalScore = _.round(_.sum(_.map(results, ({ scoreX100 }) => scoreX100)) / 100, 2);
         const totalMaxScore = _.sum(_.map(results, ({ target }) => target.maxScore));
 
-        const { rank } = await sendScoreToDashboard(totalScore);
-
-        if (rank != null) {
-          const shareUrl = new URL("https://x.com/intent/tweet");
-          shareUrl.searchParams.set(
-            "text",
-            stripIndents`
-            "Web Speed Hackathon 2026" に挑戦中です！
-            スコア: ${totalScore.toFixed(2)} / ${totalMaxScore.toFixed(2)}
-            現在 ${rank} 位です
-          `,
-          );
-          shareUrl.searchParams.set(
-            "url",
-            "https://github.com/CyberAgentHack/web-speed-hackathon-2026",
-          );
-          shareUrl.searchParams.set("hashtags", "WebSpeedHackathon");
-
-          await reporter.setArea(
-            "result",
-            stripIndents`
-            **合計 ${totalScore.toFixed(2)} / ${totalMaxScore.toFixed(2)}**
-            **（暫定 ${rank} 位）**
-
-            - [**Xで結果を投稿しよう！**](${shareUrl.href})
-          `,
-          );
-        } else {
-          await reporter.setArea(
-            "result",
-            stripIndents`
+        await reporter.setArea(
+          "result",
+          stripIndents`
             **合計 ${totalScore.toFixed(2)} / ${totalMaxScore.toFixed(2)}**
           `,
-          );
-        }
+        );
       }
     } catch (err) {
       await reporter.appendArea("fatalError", "❌ 計測に失敗しました、運営にご連絡ください");

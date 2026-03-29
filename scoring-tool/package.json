@@ -29,7 +29,6 @@
     "playwright": "npm:playwright-core@1.56.0",
     "puppeteer": "npm:puppeteer-core@24.23.0",
     "react": "19.2.0",
-    "regexparam": "3.0.0",
     "storycrawler": "5.0.1",
     "tsx": "4.20.6",
     "typescript": "5.8.2"

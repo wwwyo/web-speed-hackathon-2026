@@ -1,0 +1,76 @@
+name: Score Debug (ngrok)
+
+on:
+  workflow_dispatch:
+    inputs:
+      application_url:
+        description: 'ngrok URL (e.g. https://xxxx.ngrok-free.app)'
+        required: true
+        type: string
+      target_name:
+        description: '計測名 (空欄で全計測)'
+        required: false
+        default: 'ホーム'
+        type: string
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.14.0'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@10.32.1
+
+      - name: Install Chrome
+        run: npx playwright install --with-deps chromium
+
+      - name: Install dependencies
+        working-directory: scoring-tool
+        run: pnpm install
+
+      - name: Profile network to application
+        run: |
+          echo "=== Network Profile ==="
+          echo "--- ping ---"
+          ping -c 5 $(echo "${{ inputs.application_url }}" | sed 's|https\?://||' | sed 's|/.*||') 2>&1 || true
+          echo "--- curl timing ---"
+          curl -o /dev/null -s -w "dns: %{time_namelookup}s\nconnect: %{time_connect}s\nttfb: %{time_starttransfer}s\ntotal: %{time_total}s\nsize: %{size_download} bytes\nspeed: %{speed_download} bytes/s\n" "${{ inputs.application_url }}/" 2>&1 || true
+          echo "--- curl timing (api) ---"
+          curl -o /dev/null -s -w "dns: %{time_namelookup}s\nconnect: %{time_connect}s\nttfb: %{time_starttransfer}s\ntotal: %{time_total}s\nsize: %{size_download} bytes\nspeed: %{speed_download} bytes/s\n" "${{ inputs.application_url }}/api/v1/posts?limit=3&offset=0" 2>&1 || true
+          echo "--- system info ---"
+          nproc
+          cat /proc/cpuinfo | grep "model name" | head -1
+          free -h | head -2
+          echo "--- chrome version ---"
+          google-chrome --version 2>/dev/null || chromium-browser --version 2>/dev/null || echo "chrome not found"
+
+      - name: Run scoring-tool
+        working-directory: scoring-tool
+        run: |
+          pnpm start \
+            --applicationUrl "${{ inputs.application_url }}" \
+            --targetName "${{ inputs.target_name }}" 2>&1 | tee score-output.txt
+        env:
+          DEBUG: "wsh:log"
+
+      - name: Upload JSON reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: score-reports
+          path: /tmp/wsh-reports/
+          retention-days: 7
+
+      - name: Upload score output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: score-output
+          path: scoring-tool/score-output.txt
+          retention-days: 7

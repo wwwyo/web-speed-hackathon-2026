@@ -57,6 +57,7 @@ jobs:
             --applicationUrl "${{ inputs.application_url }}" \
             --targetName "${{ inputs.target_name }}" 2>&1 | tee score-output.txt
         env:
+          GITHUB_ACTIONS: ""
           DEBUG: "wsh:log"
 
       - name: Upload JSON reports
